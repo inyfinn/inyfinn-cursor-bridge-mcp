@@ -1,5 +1,8 @@
 # Inyfinn Cursor Bridge MCP
 
+**Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp  
+**Release:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp/releases/tag/v1.0.0
+
 Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) **0.5.0** + wbudowane abilities i przewodniki dla **Cursor IDE**.
 
 Jedna wtyczka zamiast osobnego MCP Adapter + kompanion. Endpoint REST bez zmian — działa z `@automattic/mcp-wordpress-remote`.

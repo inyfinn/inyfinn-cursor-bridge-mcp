@@ -69,6 +69,7 @@ WP_CLI_COMMAND=php ~/wp-cli.phar
 | `list-plugins` / `list-themes` / `list-posts` | Audyt |
 | `wc-list-products` / `wc-list-orders` | WooCommerce |
 | `read-wp-content-file` / `list-wp-content-dir` | Odczyt kodu w wp-content |
+| `flush-caches` | Po deployu CSS/JS |
 
 Narzędzia MCP: `mcp-adapter-discover-abilities`, `mcp-adapter-execute-ability`.
 
