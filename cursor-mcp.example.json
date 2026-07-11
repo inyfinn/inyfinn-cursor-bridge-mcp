@@ -1,0 +1,19 @@
+{
+  "_comment": "Fragment do ~/.cursor/mcp.json — hasła ze zmiennych środowiskowych, nie w repo.",
+  "mcpServers": {
+    "seohost-wordpress": {
+      "command": "npx",
+      "args": ["-y", "@automattic/mcp-wordpress-remote@latest"],
+      "env": {
+        "WP_API_URL": "https://TWOJA-DOMENA.pl/wp-json/mcp/mcp-adapter-default-server",
+        "WP_API_USERNAME": "${env:WP_MCP_USERNAME}",
+        "WP_API_PASSWORD": "${env:WP_MCP_APP_PASSWORD}"
+      }
+    }
+  },
+  "_not_mcp_adapter": {
+    "mariadb": "Lokalny MySQL — NIE produkcyjny WordPress",
+    "wordpress-local": "Osobny pakiet dla Local WP",
+    "filesystem": "Pliki na dysku dewelopera (workspace)"
+  }
+}
