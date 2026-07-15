@@ -234,7 +234,7 @@ final class Abilities {
 			'cursor-bridge/hardening-status',
 			array(
 				'label'               => 'Hardening Status',
-				'description'         => 'Status SVG, unique uploads, custom login, wp-config, PHP limits. Detects duplicates.',
+				'description'         => 'Status SVG, unique uploads, wp-config, PHP limits (8000M). Detects duplicates.',
 				'category'            => 'cursor-bridge',
 				'output_schema'       => array( 'type' => 'object' ),
 				'execute_callback'    => static fn() => Hardening::status(),
@@ -247,18 +247,20 @@ final class Abilities {
 			'cursor-bridge/hardening-install',
 			array(
 				'label'               => 'Install Hardening Feature',
-				'description'         => 'Install one feature with backup + duplicate detection. Features: svg-media, unique-uploads, custom-login, wp-config, php-limits, or all.',
+				'description'         => 'Install one feature with backup + duplicate detection. Features: svg-media, unique-uploads, wp-config, php-limits, or all.',
 				'category'            => 'cursor-bridge',
 				'input_schema'        => array(
 					'type'       => 'object',
 					'properties' => array(
 						'feature'              => array(
 							'type' => 'string',
-							'enum' => array( 'svg-media', 'unique-uploads', 'custom-login', 'wp-config', 'php-limits', 'all' ),
+							'enum' => array( 'svg-media', 'unique-uploads', 'wp-config', 'php-limits', 'all' ),
 						),
 						'dry_run'              => array( 'type' => 'boolean', 'default' => false ),
 						'force'                => array( 'type' => 'boolean', 'default' => false ),
+						'replace'              => array( 'type' => 'boolean', 'default' => false ),
 						'allow_functions_php'  => array( 'type' => 'boolean', 'default' => false ),
+						'prefer_functions_php' => array( 'type' => 'boolean', 'default' => false ),
 					),
 					'required'   => array( 'feature' ),
 				),
@@ -266,10 +268,15 @@ final class Abilities {
 				'execute_callback'    => static function ( $input = array() ): array {
 					$input    = is_array( $input ) ? $input : array();
 					$feature  = sanitize_key( (string) ( $input['feature'] ?? '' ) );
+					$force    = ! empty( $input['force'] );
+					$replace  = ! empty( $input['replace'] ) || $force;
+					$prefer   = ! empty( $input['prefer_functions_php'] );
 					$opts     = array(
-						'dry_run'             => ! empty( $input['dry_run'] ),
-						'force'               => ! empty( $input['force'] ),
-						'allow_functions_php' => ! empty( $input['allow_functions_php'] ),
+						'dry_run'              => ! empty( $input['dry_run'] ),
+						'force'                => $force,
+						'replace'              => $replace,
+						'allow_functions_php'  => ! empty( $input['allow_functions_php'] ) || $prefer,
+						'prefer_functions_php' => $prefer,
 					);
 					if ( 'all' === $feature ) {
 						return Hardening::install_all( $opts );

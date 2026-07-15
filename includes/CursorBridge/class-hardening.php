@@ -1,13 +1,12 @@
 <?php
 /**
- * Site hardening installer: SVG, unique uploads, custom login, wp-config, PHP limits.
+ * Site hardening installer: SVG, unique uploads, wp-config, PHP limits.
  *
  * Safety rules:
  * 1. Always backup before mutate
- * 2. Detect markers / signatures — never duplicate
- * 3. Prefer mu-plugin; functions.php last resort
+ * 2. Detect markers / signatures — never duplicate (unless replace/force)
+ * 3. mu-plugin default; functions.php when user selects in admin
  * 4. Validate PHP after write; rollback on failure
- * 5. Strip dangerous values from user-requested configs
  *
  * @package Inyfinn_Cursor_Bridge_MCP
  */
@@ -56,32 +55,19 @@ final class Hardening {
 					'wp_unique_filename',
 				),
 			),
-			'custom-login'   => array(
-				'label'       => 'Login /logowanie',
-				'type'        => 'mu_plugin',
-				'source'      => $dir . 'inyfinn-custom-login.php',
-				'mu_filename' => 'inyfinn-custom-login.php',
-				'marker'      => 'custom-login',
-				'signatures'  => array(
-					'BEGIN Inyfinn Cursor Bridge: custom-login',
-					'monday_fix_login_url',
-					'monday_security_block',
-					"rewrite_rule( '^logowanie",
-					'/logowanie',
-				),
-			),
 			'wp-config'      => array(
-				'label'      => 'Bezpieczne stałe wp-config.php',
+				'label'      => 'Stałe wp-config.php',
 				'type'       => 'wp_config',
-				'marker'     => 'wp-config-safe',
+				'marker'     => 'wp-config',
 				'signatures' => array(
+					'BEGIN Inyfinn Cursor Bridge: wp-config',
 					'BEGIN Inyfinn Cursor Bridge: wp-config-safe',
 					'FORCE_SSL_ADMIN',
 					'HTTP_X_FORWARDED_PROTO',
 				),
 			),
 			'php-limits'     => array(
-				'label'      => 'Limity PHP (.user.ini + opcjonalnie .htaccess)',
+				'label'      => 'Limity PHP 8000M (.user.ini + .htaccess)',
 				'type'       => 'php_limits',
 				'marker'     => 'php-limits',
 				'signatures' => array(
@@ -116,7 +102,7 @@ final class Hardening {
 		return array(
 			'features'     => $out,
 			'backup_root'  => Hardening_Backup::backup_root_relative(),
-			'prefer'       => 'mu-plugin first; functions.php last resort',
+			'prefer'       => 'mu-plugin default; functions.php when selected in admin',
 			'timestamp'    => gmdate( 'c' ),
 		);
 	}
@@ -140,11 +126,13 @@ final class Hardening {
 		$meta     = $features[ $feature_id ];
 		$dry_run  = ! empty( $opts['dry_run'] );
 		$force    = ! empty( $opts['force'] );
-		$allow_fn = ! empty( $opts['allow_functions_php'] );
+		$replace  = ! empty( $opts['replace'] ) || $force;
+		$allow_fn = ! empty( $opts['allow_functions_php'] ) || ! empty( $opts['prefer_functions_php'] );
+		$prefer_fn = ! empty( $opts['prefer_functions_php'] );
 
 		$detection = self::detect( $feature_id );
 
-		if ( ! empty( $detection['ours'] ) && ! $force ) {
+		if ( ! empty( $detection['ours'] ) && ! $replace ) {
 			return array(
 				'ok'      => false,
 				'skipped' => true,
@@ -184,11 +172,11 @@ final class Hardening {
 
 		switch ( $meta['type'] ) {
 			case 'mu_plugin':
-				return self::install_mu_plugin( $feature_id, $meta, $allow_fn );
+				return self::install_mu_plugin( $feature_id, $meta, $allow_fn, $prefer_fn, $replace );
 			case 'wp_config':
-				return self::install_wp_config( $feature_id );
+				return self::install_wp_config( $feature_id, $replace );
 			case 'php_limits':
-				return self::install_php_limits( $feature_id );
+				return self::install_php_limits( $feature_id, $replace );
 			default:
 				return array(
 					'ok'      => false,
@@ -218,7 +206,7 @@ final class Hardening {
 	 * @param array<string, mixed> $meta
 	 * @return array<string, mixed>
 	 */
-	private static function install_mu_plugin( string $feature_id, array $meta, bool $allow_functions_php ): array {
+	private static function install_mu_plugin( string $feature_id, array $meta, bool $allow_functions_php, bool $prefer_functions_php, bool $replace ): array {
 		$source = $meta['source'];
 		if ( ! is_readable( $source ) ) {
 			return array(
@@ -233,6 +221,10 @@ final class Hardening {
 				'ok'      => false,
 				'message' => Hardening_Messages::get( 'not_writable', $feature_id, array( 'target' => $source ) ),
 			);
+		}
+
+		if ( $prefer_functions_php && $allow_functions_php ) {
+			return self::install_into_functions_php( $feature_id, $meta, $content, $replace );
 		}
 
 		$mu_dir = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins';
@@ -283,10 +275,6 @@ final class Hardening {
 				);
 			}
 
-			if ( 'custom-login' === $feature_id ) {
-				delete_option( 'inyfinn_cb_login_rewrite_flushed' );
-			}
-
 			return array(
 				'ok'      => true,
 				'path'    => $dest,
@@ -299,26 +287,25 @@ final class Hardening {
 			);
 		}
 
-		// Last resort: functions.php
 		if ( ! $allow_functions_php ) {
 			return array(
 				'ok'      => false,
 				'message' => Hardening_Messages::get(
 					'not_writable',
 					$feature_id,
-					array( 'target' => $mu_dir . ' (set allow_functions_php=true for last-resort)' )
+					array( 'target' => $mu_dir . ' (zaznacz „Wstrzyknij do functions.php” w panelu)' )
 				),
 			);
 		}
 
-		return self::install_into_functions_php( $feature_id, $meta, $content );
+		return self::install_into_functions_php( $feature_id, $meta, $content, $replace );
 	}
 
 	/**
 	 * @param array<string, mixed> $meta
 	 * @return array<string, mixed>
 	 */
-	private static function install_into_functions_php( string $feature_id, array $meta, string $mu_content ): array {
+	private static function install_into_functions_php( string $feature_id, array $meta, string $mu_content, bool $replace = false ): array {
 		$functions = get_stylesheet_directory() . '/functions.php';
 		if ( ! file_exists( $functions ) ) {
 			return array(
@@ -335,7 +322,6 @@ final class Hardening {
 			);
 		}
 
-		// Strip plugin header from mu file for functions.php embed.
 		$snippet = self::extract_snippet_body( $mu_content, $meta['marker'] );
 		if ( '' === $snippet ) {
 			return array(
@@ -345,11 +331,14 @@ final class Hardening {
 		}
 
 		if ( false !== strpos( $existing, self::MARKER_PREFIX . ' ' . $meta['marker'] ) ) {
-			return array(
-				'ok'      => false,
-				'skipped' => true,
-				'message' => Hardening_Messages::get( 'already_exists', $feature_id ),
-			);
+			if ( ! $replace ) {
+				return array(
+					'ok'      => false,
+					'skipped' => true,
+					'message' => Hardening_Messages::get( 'already_exists', $feature_id ),
+				);
+			}
+			$existing = self::strip_functions_marker_block( $existing, $meta['marker'] );
 		}
 
 		$backup = Hardening_Backup::backup_file( $functions );
@@ -403,10 +392,9 @@ final class Hardening {
 	/**
 	 * @return array<string, mixed>
 	 */
-	private static function install_wp_config( string $feature_id ): array {
+	private static function install_wp_config( string $feature_id, bool $replace = false ): array {
 		$config = ABSPATH . 'wp-config.php';
 		if ( ! is_readable( $config ) ) {
-			// Sometimes one level up.
 			$parent = dirname( ABSPATH ) . '/wp-config.php';
 			$config = is_readable( $parent ) ? $parent : $config;
 		}
@@ -425,12 +413,18 @@ final class Hardening {
 			);
 		}
 
-		if ( false !== strpos( $raw, self::MARKER_PREFIX . ' wp-config-safe' ) ) {
+		$has_ours = false !== strpos( $raw, 'BEGIN Inyfinn Cursor Bridge: wp-config' );
+
+		if ( $has_ours && ! $replace ) {
 			return array(
 				'ok'      => false,
 				'skipped' => true,
 				'message' => Hardening_Messages::get( 'already_exists', $feature_id ),
 			);
+		}
+
+		if ( $has_ours && $replace ) {
+			$raw = self::strip_wp_config_blocks( $raw );
 		}
 
 		$marker = "/* That's all, stop editing!";
@@ -454,7 +448,7 @@ final class Hardening {
 			);
 		}
 
-		$block = self::safe_wp_config_block( $raw );
+		$block = self::wp_config_block( $raw );
 		$new   = substr( $raw, 0, $pos ) . $block . "\n" . substr( $raw, $pos );
 
 		if ( ! is_writable( $config ) ) {
@@ -496,22 +490,16 @@ final class Hardening {
 				$feature_id,
 				array( 'backup' => $backup['path'] )
 			),
-			'notes'   => array(
-				Hardening_Messages::get( 'skipped_dangerous', $feature_id, array( 'hint' => 'WP_MEMORY_LIMIT 8000M' ) ),
-				Hardening_Messages::get( 'skipped_dangerous', $feature_id, array( 'hint' => 'WP_ALLOW_REPAIR' ) ),
-				Hardening_Messages::get( 'skipped_dangerous', $feature_id, array( 'hint' => 'WP_DEBUG=true on production by default' ) ),
-			),
 		);
 	}
 
 	/**
-	 * Build wp-config block — only defines not already present.
+	 * Build wp-config block — only defines not already present outside our block.
 	 */
-	private static function safe_wp_config_block( string $existing ): string {
+	private static function wp_config_block( string $existing ): string {
 		$lines   = array();
 		$lines[] = '';
-		$lines[] = '// BEGIN Inyfinn Cursor Bridge: wp-config-safe';
-		$lines[] = '// Verified safe defaults (NOT 8000M / NOT WP_ALLOW_REPAIR / DEBUG off by default).';
+		$lines[] = '// BEGIN Inyfinn Cursor Bridge: wp-config';
 
 		if ( false === strpos( $existing, 'HTTP_X_FORWARDED_PROTO' ) ) {
 			$lines[] = "if ( isset( \$_SERVER['HTTP_X_FORWARDED_PROTO'] ) && false !== strpos( \$_SERVER['HTTP_X_FORWARDED_PROTO'], 'https' ) ) {";
@@ -520,26 +508,30 @@ final class Hardening {
 		}
 
 		$defines = array(
-			'FORCE_SSL_ADMIN'           => 'true',
-			'FS_METHOD'                 => "'direct'",
-			'AUTOSAVE_INTERVAL'         => '60',
-			'WP_MEMORY_LIMIT'           => "'256M'",
-			'WP_MAX_MEMORY_LIMIT'       => "'512M'",
-			'WP_DEBUG'                  => 'false',
-			'WP_DEBUG_LOG'              => 'false',
-			'WP_DEBUG_DISPLAY'          => 'false',
-			'DISABLE_WP_CRON'           => 'false',
-			// Intentionally NOT: WP_ALLOW_REPAIR, AUTOMATIC_UPDATER_DISABLED, absurd memory.
+			'WP_DEBUG'                    => 'true',
+			'WP_DEBUG_LOG'                => 'true',
+			'WP_DEBUG_DISPLAY'            => 'false',
+			'WPLANG'                      => "'pl_PL'",
+			'DISABLE_WP_CRON'             => 'false',
+			'FORCE_SSL_ADMIN'             => 'true',
+			'FS_METHOD'                   => "'direct'",
+			'WP_ALLOW_REPAIR'             => 'true',
+			'WP_AUTO_UPDATE_CORE'         => 'false',
+			'AUTOMATIC_UPDATER_DISABLED'  => 'true',
+			'AUTOSAVE_INTERVAL'           => '60',
+			'WP_CACHE'                    => 'true',
+			'WP_MEMORY_LIMIT'             => "'8000M'",
+			'WP_MAX_MEMORY_LIMIT'         => "'512M'",
 		);
 
 		foreach ( $defines as $const => $value ) {
-			if ( false !== strpos( $existing, "'" . $const . "'" ) || false !== strpos( $existing, '"' . $const . '"' ) || false !== strpos( $existing, 'define( \'' . $const ) || false !== strpos( $existing, 'define("' . $const ) || false !== preg_match( '/define\s*\(\s*[\'"]' . preg_quote( $const, '/' ) . '[\'"]/', $existing ) ) {
+			if ( false !== strpos( $existing, "'" . $const . "'" ) || false !== strpos( $existing, '"' . $const . '"' ) || false !== preg_match( '/define\s*\(\s*[\'"]' . preg_quote( $const, '/' ) . '[\'"]/', $existing ) ) {
 				continue;
 			}
 			$lines[] = "if ( ! defined( '{$const}' ) ) { define( '{$const}', {$value} ); }";
 		}
 
-		$lines[] = '// END Inyfinn Cursor Bridge: wp-config-safe';
+		$lines[] = '// END Inyfinn Cursor Bridge: wp-config';
 		$lines[] = '';
 
 		return implode( "\n", $lines );
@@ -548,27 +540,38 @@ final class Hardening {
 	/**
 	 * @return array<string, mixed>
 	 */
-	private static function install_php_limits( string $feature_id ): array {
-		$results = array();
-
-		// .user.ini in ABSPATH — works on many shared hosts (LiteSpeed/CGI).
+	private static function install_php_limits( string $feature_id, bool $replace = false ): array {
+		$results  = array();
+		$ini_body = self::php_limits_ini_body();
 		$user_ini = ABSPATH . '.user.ini';
-		$ini_body = "; BEGIN Inyfinn Cursor Bridge: php-limits\n"
-			. "upload_max_filesize = 64M\n"
-			. "post_max_size = 64M\n"
-			. "memory_limit = 256M\n"
-			. "max_execution_time = 120\n"
-			. "max_input_time = 120\n"
-			. "; END Inyfinn Cursor Bridge: php-limits\n";
 
 		if ( file_exists( $user_ini ) ) {
 			$cur = file_get_contents( $user_ini );
-			if ( is_string( $cur ) && false !== strpos( $cur, 'BEGIN Inyfinn Cursor Bridge: php-limits' ) ) {
-				$results['user_ini'] = array(
-					'ok'      => false,
-					'skipped' => true,
-					'message' => Hardening_Messages::get( 'already_exists', $feature_id ),
-				);
+			if ( ! is_string( $cur ) ) {
+				$cur = '';
+			}
+			if ( false !== strpos( $cur, 'BEGIN Inyfinn Cursor Bridge: php-limits' ) ) {
+				if ( ! $replace ) {
+					$results['user_ini'] = array(
+						'ok'      => false,
+						'skipped' => true,
+						'message' => Hardening_Messages::get( 'already_exists', $feature_id ),
+					);
+				} else {
+					$backup = Hardening_Backup::backup_file( $user_ini );
+					if ( empty( $backup['ok'] ) ) {
+						return array(
+							'ok'      => false,
+							'message' => Hardening_Messages::get( 'backup_failed', $feature_id, array( 'target' => $user_ini ) ),
+						);
+					}
+					$new = self::replace_marked_block( $cur, '; BEGIN Inyfinn Cursor Bridge: php-limits', '; END Inyfinn Cursor Bridge: php-limits', $ini_body );
+					file_put_contents( $user_ini, $new, LOCK_EX );
+					$results['user_ini'] = array(
+						'ok'      => true,
+						'message' => Hardening_Messages::get( 'installed_userini', $feature_id, array( 'backup' => $backup['path'] ) ),
+					);
+				}
 			} else {
 				$backup = Hardening_Backup::backup_file( $user_ini );
 				if ( empty( $backup['ok'] ) ) {
@@ -577,7 +580,7 @@ final class Hardening {
 						'message' => Hardening_Messages::get( 'backup_failed', $feature_id, array( 'target' => $user_ini ) ),
 					);
 				}
-				$new = rtrim( (string) $cur ) . "\n\n" . $ini_body;
+				$new = rtrim( $cur ) . "\n\n" . $ini_body;
 				file_put_contents( $user_ini, $new, LOCK_EX );
 				$results['user_ini'] = array(
 					'ok'      => true,
@@ -599,34 +602,40 @@ final class Hardening {
 			);
 		}
 
-		// Optional .htaccess — only if Apache-style file exists; safe values (NOT 8000M / NOT 0 timeout).
 		$htaccess = ABSPATH . '.htaccess';
+		$ht_block = self::php_limits_htaccess_block();
 		if ( file_exists( $htaccess ) && is_writable( $htaccess ) ) {
 			$ht = file_get_contents( $htaccess );
-			if ( is_string( $ht ) && false === strpos( $ht, 'BEGIN Inyfinn Cursor Bridge: php-limits' ) ) {
+			if ( ! is_string( $ht ) ) {
+				$ht = '';
+			}
+			if ( false !== strpos( $ht, 'BEGIN Inyfinn Cursor Bridge: php-limits' ) ) {
+				if ( $replace ) {
+					$backup = Hardening_Backup::backup_file( $htaccess );
+					if ( ! empty( $backup['ok'] ) ) {
+						$new = self::replace_marked_block( $ht, '# BEGIN Inyfinn Cursor Bridge: php-limits', '# END Inyfinn Cursor Bridge: php-limits', $ht_block );
+						file_put_contents( $htaccess, $new, LOCK_EX );
+						$results['htaccess'] = array(
+							'ok'      => true,
+							'message' => Hardening_Messages::get( 'installed_htaccess', $feature_id, array( 'backup' => $backup['path'] ) ),
+						);
+					}
+				} else {
+					$results['htaccess'] = array(
+						'ok'      => false,
+						'skipped' => true,
+						'message' => Hardening_Messages::get( 'already_exists', $feature_id ),
+					);
+				}
+			} else {
 				$backup = Hardening_Backup::backup_file( $htaccess );
 				if ( ! empty( $backup['ok'] ) ) {
-					$block = "\n# BEGIN Inyfinn Cursor Bridge: php-limits\n"
-						. "<IfModule mod_php.c>\n"
-						. "php_value upload_max_filesize 64M\n"
-						. "php_value post_max_size 64M\n"
-						. "php_value memory_limit 256M\n"
-						. "php_value max_execution_time 120\n"
-						. "php_value max_input_time 120\n"
-						. "</IfModule>\n"
-						. "# END Inyfinn Cursor Bridge: php-limits\n";
-					file_put_contents( $htaccess, rtrim( $ht ) . $block, LOCK_EX );
+					file_put_contents( $htaccess, rtrim( $ht ) . "\n" . $ht_block, LOCK_EX );
 					$results['htaccess'] = array(
 						'ok'      => true,
 						'message' => Hardening_Messages::get( 'installed_htaccess', $feature_id, array( 'backup' => $backup['path'] ) ),
 					);
 				}
-			} else {
-				$results['htaccess'] = array(
-					'ok'      => false,
-					'skipped' => true,
-					'message' => Hardening_Messages::get( 'already_exists', $feature_id ),
-				);
 			}
 		} else {
 			$results['htaccess'] = array(
@@ -646,11 +655,60 @@ final class Hardening {
 		return array(
 			'ok'      => $ok || ! empty( $results['user_ini']['ok'] ),
 			'results' => $results,
-			'notes'   => array(
-				Hardening_Messages::get( 'skipped_dangerous', $feature_id, array( 'hint' => '8000M / max_execution_time=0' ) ),
-			),
 			'message' => Hardening_Messages::get( 'installed_userini', $feature_id, array( 'backup' => Hardening_Backup::backup_root_relative() ) ),
 		);
+	}
+
+	private static function php_limits_ini_body(): string {
+		return "; BEGIN Inyfinn Cursor Bridge: php-limits\n"
+			. "upload_max_filesize = 8000M\n"
+			. "post_max_size = 8000M\n"
+			. "memory_limit = 8000M\n"
+			. "max_execution_time = 0\n"
+			. "max_input_time = 0\n"
+			. "; END Inyfinn Cursor Bridge: php-limits\n";
+	}
+
+	private static function php_limits_htaccess_block(): string {
+		return "\n# BEGIN Inyfinn Cursor Bridge: php-limits\n"
+			. "<IfModule mod_php.c>\n"
+			. "php_value upload_max_filesize 8000M\n"
+			. "php_value post_max_size 8000M\n"
+			. "php_value memory_limit 8000M\n"
+			. "php_value max_execution_time 0\n"
+			. "php_value max_input_time 0\n"
+			. "</IfModule>\n"
+			. "# END Inyfinn Cursor Bridge: php-limits\n";
+	}
+
+	private static function replace_marked_block( string $content, string $begin, string $end, string $new_block ): string {
+		$pattern = '/' . preg_quote( $begin, '/' ) . '.*?' . preg_quote( $end, '/' ) . '\s*/s';
+		if ( preg_match( $pattern, $content ) ) {
+			$replaced = preg_replace( $pattern, $new_block, $content, 1 );
+			return is_string( $replaced ) ? $replaced : $content;
+		}
+		return rtrim( $content ) . "\n\n" . $new_block;
+	}
+
+	private static function strip_wp_config_blocks( string $raw ): string {
+		$patterns = array(
+			'/\n*\/\/ BEGIN Inyfinn Cursor Bridge: wp-config-safe.*?\/\/ END Inyfinn Cursor Bridge: wp-config-safe\n*/s',
+			'/\n*\/\/ BEGIN Inyfinn Cursor Bridge: wp-config.*?\/\/ END Inyfinn Cursor Bridge: wp-config\n*/s',
+		);
+		foreach ( $patterns as $pattern ) {
+			$replaced = preg_replace( $pattern, "\n", $raw, 1 );
+			if ( is_string( $replaced ) ) {
+				$raw = $replaced;
+			}
+		}
+		return $raw;
+	}
+
+	private static function strip_functions_marker_block( string $content, string $marker ): string {
+		$pattern = '/\n?\/\*\*\n \* ' . preg_quote( self::MARKER_PREFIX, '/' ) . ' ' . preg_quote( $marker, '/' )
+			. '.*?' . preg_quote( '// ' . self::MARKER_END . ' ' . $marker, '/' ) . '\n?/s';
+		$replaced = preg_replace( $pattern, '', $content, 1 );
+		return is_string( $replaced ) ? $replaced : $content;
 	}
 
 	/**
@@ -715,6 +773,13 @@ final class Hardening {
 
 		foreach ( $haystacks as $path => $content ) {
 			if ( false !== strpos( $content, $marker ) ) {
+				$ours     = true;
+				$location = $path;
+				break;
+			}
+			if ( 'wp-config' === $feature_id
+				&& ( false !== strpos( $content, 'BEGIN Inyfinn Cursor Bridge: wp-config-safe' )
+					|| false !== strpos( $content, 'BEGIN Inyfinn Cursor Bridge: wp-config' ) ) ) {
 				$ours     = true;
 				$location = $path;
 				break;

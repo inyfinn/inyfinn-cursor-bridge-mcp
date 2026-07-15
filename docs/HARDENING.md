@@ -1,55 +1,38 @@
-# Hardening — SVG, uploady, login, limity
+# Hardening — SVG, uploady, wp-config, limity 8000M
 
-Moduł w Inyfinn Cursor Bridge MCP (v1.3.0+).
+Moduł w Inyfinn Cursor Bridge MCP (v1.3.1+).
 
-## Zasady bezpieczeństwa (obowiązkowe)
+## Zasady
 
 1. **Zawsze backup** przed edycją → `wp-content/inyfinn-cursor-bridge/backups/`
 2. **Wykrywanie duplikatów** — znaczniki `BEGIN Inyfinn Cursor Bridge: …` + sygnatury
-3. **Mu-plugin najpierw** — `functions.php` tylko z `allow_functions_php=true` (ostateczność)
+3. **Mu-plugin domyślnie** — `functions.php` gdy zaznaczysz w panelu
 4. **Walidacja PHP** po zapisie → rollback przy błędzie składni
-5. **Bez niebezpiecznych wartości** z Twojego szkicu (patrz niżej)
-
----
-
-## Co zostało poprawione względem Twojego szkicu
-
-| Oryginał | Werdykt (3× audyt) | W paczce |
-|----------|-------------------|----------|
-| SVG mime + metadata + preview | OK (z poprawkami) | Tak — mu-plugin |
-| Podwójny `media_library_infinite_scrolling` | Bug | Usunięty duplikat; batch 80 (nie 250) |
-| `nexta_svg_metadata` | Obca nazwa | `inyfinn_cb_svg_metadata` |
-| Login → 404 na wp-admin dla gości | **Niebezpieczne** (psuje AJAX/pluginów) | Soft redirect `/logowanie`, bez 404 wp-admin |
-| `WP_MEMORY_LIMIT` 8000M + drugi 256M | Konflikt + absurd | Tylko `256M` / `512M` max |
-| `max_execution_time = 0` | Może zawiesić hosting | `120` |
-| `upload_max_filesize = 8000M` | Nierealne / ryzykowne | `64M` |
-| `WP_ALLOW_REPAIR` | Dziura bezpieczeństwa | **Nie włączamy** |
-| `WP_DEBUG = true` na produkcji | Ryzyko | Domyślnie `false` |
-| `AUTOMATIC_UPDATER_DISABLED` | Świadoma decyzja, nie auto | **Nie włączamy** |
-| `WPLANG` | Deprecated | Pominięte |
-| Unikalne nazwy plików | Brakowało | `unique-uploads` z datą `Ymd-His` przy konflikcie |
+5. **Wymuś ponowne zastosowanie** — nadpisuje nasze istniejące bloki (wp-config, .user.ini, functions.php)
 
 ---
 
 ## Funkcje
 
-| ID | Co robi | Plik |
-|----|---------|------|
-| `svg-media` | SVG/SVGZ, metadane, podgląd, infinite scroll | `mu-plugins/inyfinn-svg-media.php` |
-| `unique-uploads` | Przy konflikcie nazwy → `plik-20260715-201500.svg` | `mu-plugins/inyfinn-unique-uploads.php` |
-| `custom-login` | URL `/logowanie`, soft redirect z wp-login.php | `mu-plugins/inyfinn-custom-login.php` |
-| `wp-config` | HTTPS proxy, SSL admin, memory 256/512, DEBUG off | wstawka przed „stop editing” |
-| `php-limits` | `.user.ini` (+ `.htaccess` jeśli Apache) | limity 64M/256M/120s |
+| ID | Co robi | Gdzie trafia |
+|----|---------|--------------|
+| `svg-media` | SVG/SVGZ, metadane, podgląd, infinite scroll | `mu-plugins/` lub `functions.php` |
+| `unique-uploads` | Przy konflikcie nazwy → `plik-20260715-201500.svg` | `mu-plugins/` lub `functions.php` |
+| `wp-config` | HTTPS proxy, DEBUG, WPLANG, SSL admin, FS_METHOD, WP_ALLOW_REPAIR, WP_CACHE, memory **8000M** | `wp-config.php` |
+| `php-limits` | upload/post/memory **8000M**, `max_execution_time=0` | `.user.ini` + `.htaccess` |
+
+**Usunięte w 1.3.1:** `custom-login` (redirect `/logowanie`) — nie jest już częścią paczki.
 
 ---
 
 ## Panel WP
 
-**Ustawienia → Cursor Bridge → Hardening strony**
+**Ustawienia → Cursor Bridge → Poprawki strony**
 
-- Status każdej funkcji
-- Przycisk **Zainstaluj**
-- **Zainstaluj wszystkie brakujące**
+1. Zaznacz poprawki (checkboxy)
+2. Opcjonalnie: **Wstrzyknij SVG i uploady do functions.php**
+3. Opcjonalnie: **Wymuś ponowne zastosowanie**
+4. Kliknij **Zastosuj zaznaczone poprawki**
 
 ---
 
@@ -57,34 +40,27 @@ Moduł w Inyfinn Cursor Bridge MCP (v1.3.0+).
 
 ```text
 cursor-bridge/hardening-status
-cursor-bridge/hardening-install  { "feature": "svg-media", "dry_run": true }
+cursor-bridge/hardening-install  { "feature": "php-limits" }
+cursor-bridge/hardening-install  { "feature": "svg-media", "prefer_functions_php": true }
+cursor-bridge/hardening-install  { "feature": "wp-config", "force": true }
 cursor-bridge/hardening-install  { "feature": "all" }
 ```
 
 Opcje:
-- `dry_run` — tylko symulacja
-- `force` — nadpisz mimo duplikatu (niezalecane)
-- `allow_functions_php` — ostateczność gdy mu-plugins niezapisywalne
+- `dry_run` — symulacja
+- `force` / `replace` — nadpisz nasze bloki
+- `prefer_functions_php` — SVG/uploady do `functions.php` zamiast mu-plugins
+- `allow_functions_php` — fallback gdy mu-plugins niezapisywalne
 
 ---
 
-## Komunikaty (5 wariantów / przypadek)
+## Komunikaty
 
-Przykłady przypadków:
-- `already_exists` — kod już jest
-- `similar_exists` — podobny kod od innej wtyczki/motywu
+- `already_exists` — kod już jest (użyj force)
+- `similar_exists` — podobny kod od innej wtyczki
 - `backup_failed` — bez backupu nie ruszamy
 - `syntax_invalid` — rollback
-- `installed_mu` / `installed_functions` / `installed_config`
-- `skipped_dangerous` — odrzucono 8000M / REPAIR itd.
-
----
-
-## Po instalacji custom-login
-
-1. Wejdź w **Ustawienia → Bezpośrednie odnośniki → Zapisz** (flush rewrite) — wtyczka też flushuje raz
-2. Test: `https://domena.pl/logowanie`
-3. Stary `wp-login.php` przekieruje na `/logowanie`
+- `installed_mu` / `installed_functions` / `installed_config` / `installed_userini`
 
 ---
 

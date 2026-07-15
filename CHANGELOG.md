@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.1 — 2026-07-15
+
+### Changed
+- **PHP limits: 8000M** (`upload_max_filesize`, `post_max_size`, `memory_limit`) + `max_execution_time=0`
+- **wp-config**: pełny blok (DEBUG, WPLANG, WP_ALLOW_REPAIR, WP_CACHE, WP_MEMORY_LIMIT 8000M, itd.)
+- **Panel admin**: formularz z checkboxami + przycisk **Zastosuj zaznaczone poprawki** (POST)
+- Opcja **Wstrzyknij do functions.php** dla SVG/uploadów
+- Opcja **Wymuś ponowne zastosowanie** (replace naszych bloków)
+
+### Removed
+- `custom-login` (redirect `/logowanie`) — całkowicie usunięty z paczki
+
 ## 1.3.0 — 2026-07-15
 
 ### Added

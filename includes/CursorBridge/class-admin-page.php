@@ -94,15 +94,36 @@ final class Admin_Page {
 			}
 		}
 
-		if ( isset( $_GET['inyfinn_hardening'] ) && check_admin_referer( 'inyfinn_hardening' ) ) {
-			$feature = sanitize_key( (string) wp_unslash( $_GET['inyfinn_hardening'] ) );
-			$force   = ! empty( $_GET['force'] );
-			$allow_fn = ! empty( $_GET['allow_functions_php'] );
-			$result  = ( 'all' === $feature )
-				? Hardening::install_all( array( 'force' => $force, 'allow_functions_php' => $allow_fn ) )
-				: Hardening::install( $feature, array( 'force' => $force, 'allow_functions_php' => $allow_fn ) );
+		if ( isset( $_POST['inyfinn_apply_hardening'] ) && check_admin_referer( 'inyfinn_apply_hardening' ) ) {
+			$selected  = array_map( 'sanitize_key', (array) wp_unslash( $_POST['hardening_features'] ?? array() ) );
+			$prefer_fn = ! empty( $_POST['prefer_functions_php'] );
+			$force     = ! empty( $_POST['hardening_force'] );
 
-			self::flash_hardening_result( $result, $feature );
+			if ( empty( $selected ) ) {
+				add_settings_error(
+					'inyfinn_cursor_bridge',
+					'hardening',
+					__( 'Wybierz co najmniej jedną poprawkę do zastosowania.', 'inyfinn-cursor-bridge-mcp' ),
+					'warning'
+				);
+			} else {
+				$valid_ids = array_keys( (array) ( Hardening::status()['features'] ?? array() ) );
+				$results   = array();
+				$mu_snippets = array( 'svg-media', 'unique-uploads' );
+				foreach ( $selected as $feature ) {
+					if ( ! in_array( $feature, $valid_ids, true ) ) {
+						continue;
+					}
+					$opts = array(
+						'force'               => $force,
+						'replace'             => $force,
+						'allow_functions_php' => $prefer_fn,
+						'prefer_functions_php' => $prefer_fn && in_array( $feature, $mu_snippets, true ),
+					);
+					$results[ $feature ] = Hardening::install( $feature, $opts );
+				}
+				self::flash_hardening_result( array( 'results' => $results ), 'batch' );
+			}
 		}
 	}
 
@@ -111,25 +132,35 @@ final class Admin_Page {
 	 */
 	private static function flash_hardening_result( array $result, string $feature ): void {
 		if ( isset( $result['results'] ) && is_array( $result['results'] ) ) {
-			$ok = 0;
+			$ok   = 0;
 			$skip = 0;
-			foreach ( $result['results'] as $r ) {
+			$fail = 0;
+			$lines = array();
+			foreach ( $result['results'] as $id => $r ) {
+				$msg = $r['message'] ?? '';
+				if ( is_array( $msg ) ) {
+					$msg = (string) ( $msg['message'] ?? wp_json_encode( $msg ) );
+				}
+				$lines[] = $id . ': ' . (string) $msg;
 				if ( ! empty( $r['ok'] ) && empty( $r['skipped'] ) ) {
 					++$ok;
 				} elseif ( ! empty( $r['skipped'] ) ) {
 					++$skip;
+				} else {
+					++$fail;
 				}
 			}
 			add_settings_error(
 				'inyfinn_cursor_bridge',
 				'hardening',
 				sprintf(
-					/* translators: 1: installed count, 2: skipped count */
-					__( 'Hardening: zainstalowano %1$d, pominięto %2$d (duplikaty/konflikty chronione).', 'inyfinn-cursor-bridge-mcp' ),
+					/* translators: 1: installed, 2: skipped, 3: failed */
+					__( 'Hardening: zastosowano %1$d, pominięto %2$d, błędy %3$d.', 'inyfinn-cursor-bridge-mcp' ),
 					$ok,
-					$skip
-				),
-				$ok > 0 ? 'success' : 'info'
+					$skip,
+					$fail
+				) . ( $lines ? ' ' . implode( ' | ', $lines ) : '' ),
+				$fail > 0 ? 'error' : ( $ok > 0 ? 'success' : 'warning' )
 			);
 			return;
 		}
@@ -199,7 +230,7 @@ final class Admin_Page {
 				<?php
 				printf(
 					/* translators: %s: version */
-					esc_html__( 'Wersja %s — MCP + diagnostyka + hardening (SVG, uploady, login, limity).', 'inyfinn-cursor-bridge-mcp' ),
+					esc_html__( 'Wersja %s — MCP + diagnostyka + poprawki strony (SVG, uploady, wp-config, limity 8000M).', 'inyfinn-cursor-bridge-mcp' ),
 					esc_html( $health['version'] ?? '' )
 				);
 				?>
@@ -242,59 +273,65 @@ final class Admin_Page {
 				</a>
 			</p>
 
-			<h2><?php esc_html_e( 'Hardening strony (SVG, uploady, login, limity)', 'inyfinn-cursor-bridge-mcp' ); ?></h2>
+			<h2><?php esc_html_e( 'Poprawki strony (SVG, uploady, wp-config, limity PHP)', 'inyfinn-cursor-bridge-mcp' ); ?></h2>
 			<p>
-				<?php esc_html_e( 'Zawsze tworzy backup przed zmianą. Nie wkleja duplikatów. Preferuje mu-plugin; functions.php tylko jako ostateczność (świadomie).', 'inyfinn-cursor-bridge-mcp' ); ?>
+				<?php esc_html_e( 'Zaznacz poprawki i kliknij „Zastosuj” — wtyczka zrobi backup i wstrzyknie kod do mu-plugins, functions.php, wp-config.php lub .user.ini/.htaccess.', 'inyfinn-cursor-bridge-mcp' ); ?>
 			</p>
-			<p class="description">
-				<?php esc_html_e( 'Odrzucone z paczki (niebezpieczne): memory 8000M, max_execution_time=0, WP_ALLOW_REPAIR, WP_DEBUG=true domyślnie, blokada wp-admin→404.', 'inyfinn-cursor-bridge-mcp' ); ?>
-			</p>
-			<table class="widefat striped" style="max-width:960px">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Funkcja', 'inyfinn-cursor-bridge-mcp' ); ?></th>
-						<th><?php esc_html_e( 'Status', 'inyfinn-cursor-bridge-mcp' ); ?></th>
-						<th><?php esc_html_e( 'Lokalizacja', 'inyfinn-cursor-bridge-mcp' ); ?></th>
-						<th style="width:160px"><?php esc_html_e( 'Akcja', 'inyfinn-cursor-bridge-mcp' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( $hardening['features'] as $feat ) : ?>
+			<form method="post" action="">
+				<?php wp_nonce_field( 'inyfinn_apply_hardening' ); ?>
+				<table class="widefat striped" style="max-width:960px">
+					<thead>
 						<tr>
-							<td><strong><?php echo esc_html( $feat['label'] ); ?></strong><br><code><?php echo esc_html( $feat['id'] ); ?></code></td>
-							<td>
-								<?php
-								if ( ! empty( $feat['installed'] ) ) {
-									self::render_status_badge( 'ok' );
-									echo ' ' . esc_html__( 'Zainstalowane', 'inyfinn-cursor-bridge-mcp' );
-								} elseif ( ! empty( $feat['similar'] ) ) {
-									self::render_status_badge( 'warning' );
-									echo ' ' . esc_html__( 'Podobny kod istnieje', 'inyfinn-cursor-bridge-mcp' );
-								} else {
-									self::render_status_badge( 'warning' );
-									echo ' ' . esc_html__( 'Brak', 'inyfinn-cursor-bridge-mcp' );
-								}
-								?>
-							</td>
-							<td><code style="word-break:break-all"><?php echo esc_html( (string) ( $feat['location'] ?? '—' ) ); ?></code></td>
-							<td>
-								<?php if ( empty( $feat['installed'] ) ) : ?>
-									<a class="button button-small button-primary" href="<?php echo esc_url( self::hardening_url( $feat['id'] ) ); ?>">
-										<?php esc_html_e( 'Zainstaluj', 'inyfinn-cursor-bridge-mcp' ); ?>
-									</a>
-								<?php else : ?>
-									—
-								<?php endif; ?>
-							</td>
+							<th style="width:40px"><?php esc_html_e( 'Zastosuj', 'inyfinn-cursor-bridge-mcp' ); ?></th>
+							<th><?php esc_html_e( 'Funkcja', 'inyfinn-cursor-bridge-mcp' ); ?></th>
+							<th><?php esc_html_e( 'Status', 'inyfinn-cursor-bridge-mcp' ); ?></th>
+							<th><?php esc_html_e( 'Lokalizacja', 'inyfinn-cursor-bridge-mcp' ); ?></th>
 						</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
-			<p>
-				<a class="button button-secondary" href="<?php echo esc_url( self::hardening_url( 'all' ) ); ?>">
-					<?php esc_html_e( 'Zainstaluj wszystkie brakujące (bezpiecznie)', 'inyfinn-cursor-bridge-mcp' ); ?>
-				</a>
-			</p>
+					</thead>
+					<tbody>
+						<?php foreach ( $hardening['features'] as $feat ) : ?>
+							<tr>
+								<td>
+									<input type="checkbox" name="hardening_features[]" value="<?php echo esc_attr( $feat['id'] ); ?>" <?php checked( empty( $feat['installed'] ) ); ?> />
+								</td>
+								<td><strong><?php echo esc_html( $feat['label'] ); ?></strong><br><code><?php echo esc_html( $feat['id'] ); ?></code></td>
+								<td>
+									<?php
+									if ( ! empty( $feat['installed'] ) ) {
+										self::render_status_badge( 'ok' );
+										echo ' ' . esc_html__( 'Zainstalowane', 'inyfinn-cursor-bridge-mcp' );
+									} elseif ( ! empty( $feat['similar'] ) ) {
+										self::render_status_badge( 'warning' );
+										echo ' ' . esc_html__( 'Podobny kod istnieje', 'inyfinn-cursor-bridge-mcp' );
+									} else {
+										self::render_status_badge( 'warning' );
+										echo ' ' . esc_html__( 'Brak', 'inyfinn-cursor-bridge-mcp' );
+									}
+									?>
+								</td>
+								<td><code style="word-break:break-all"><?php echo esc_html( (string) ( $feat['location'] ?? '—' ) ); ?></code></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				<p style="margin-top:1em">
+					<label>
+						<input type="checkbox" name="prefer_functions_php" value="1" />
+						<?php esc_html_e( 'Wstrzyknij SVG i uploady do functions.php motywu (zamiast mu-plugins)', 'inyfinn-cursor-bridge-mcp' ); ?>
+					</label>
+				</p>
+				<p>
+					<label>
+						<input type="checkbox" name="hardening_force" value="1" />
+						<?php esc_html_e( 'Wymuś ponowne zastosowanie (nadpisz nasze istniejące bloki)', 'inyfinn-cursor-bridge-mcp' ); ?>
+					</label>
+				</p>
+				<p>
+					<button type="submit" name="inyfinn_apply_hardening" value="1" class="button button-primary">
+						<?php esc_html_e( 'Zastosuj zaznaczone poprawki', 'inyfinn-cursor-bridge-mcp' ); ?>
+					</button>
+				</p>
+			</form>
 			<p class="description">
 				<?php
 				printf(
@@ -423,13 +460,6 @@ final class Admin_Page {
 		return wp_nonce_url(
 			admin_url( 'options-general.php?page=inyfinn-cursor-bridge&inyfinn_repair=' . rawurlencode( $action ) ),
 			'inyfinn_repair'
-		);
-	}
-
-	private static function hardening_url( string $feature ): string {
-		return wp_nonce_url(
-			admin_url( 'options-general.php?page=inyfinn-cursor-bridge&inyfinn_hardening=' . rawurlencode( $feature ) ),
-			'inyfinn_hardening'
 		);
 	}
 }
