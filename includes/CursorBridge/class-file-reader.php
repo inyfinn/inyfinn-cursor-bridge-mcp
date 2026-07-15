@@ -14,13 +14,44 @@ final class File_Reader {
 	private const MAX_BYTES = 524288; // 512 KB
 
 	/**
+	 * Paths that must not be read/written via MCP file abilities (use get-cursor-bundle / run-auto-setup).
+	 *
+	 * @return list<string>
+	 */
+	private static function blocked_paths(): array {
+		return array(
+			'inyfinn-cursor-bridge/cursor-setup.json',
+		);
+	}
+
+	private static function is_blocked_path( string $relative ): bool {
+		$relative = self::sanitize_relative_path( $relative );
+		return in_array( $relative, self::blocked_paths(), true );
+	}
+
+	/**
+	 * Sanitize a path relative to wp-content (no sanitize_text_field — preserves valid path chars).
+	 */
+	public static function sanitize_relative_path( string $relative ): string {
+		$relative = str_replace( array( "\0", "\r", "\n" ), '', $relative );
+		$relative = wp_normalize_path( $relative );
+		$relative = ltrim( $relative, '/' );
+
+		if ( '' === $relative || false !== strpos( $relative, '..' ) ) {
+			return '';
+		}
+
+		return $relative;
+	}
+
+	/**
 	 * Resolve path relative to WP_CONTENT_DIR. Blocks traversal outside wp-content.
 	 *
 	 * @return string|false Absolute path or false.
 	 */
 	public static function resolve_safe_path( string $relative ) {
-		$relative = ltrim( str_replace( '\\', '/', $relative ), '/' );
-		if ( '' === $relative || false !== strpos( $relative, '..' ) ) {
+		$relative = self::sanitize_relative_path( $relative );
+		if ( '' === $relative ) {
 			return false;
 		}
 
@@ -49,6 +80,14 @@ final class File_Reader {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function read_file( string $relative ) {
+		$relative = self::sanitize_relative_path( $relative );
+		if ( '' === $relative ) {
+			return new \WP_Error( 'invalid_path', 'Invalid or empty path.' );
+		}
+		if ( self::is_blocked_path( $relative ) ) {
+			return new \WP_Error( 'blocked', 'Sensitive setup file — use cursor-bridge/get-cursor-bundle (admin) or read via SFTP workspace.' );
+		}
+
 		$path = self::resolve_safe_path( $relative );
 		if ( ! $path || ! is_file( $path ) ) {
 			return new \WP_Error( 'not_found', 'File not found or path not allowed (must be under wp-content, no ..).' );
@@ -84,11 +123,7 @@ final class File_Reader {
 	 */
 	public static function list_directory( string $relative, int $depth = 1 ) {
 		$depth    = max( 1, min( 4, $depth ) );
-		$relative = ltrim( str_replace( '\\', '/', $relative ), '/' );
-
-		if ( false !== strpos( $relative, '..' ) ) {
-			return new \WP_Error( 'not_found', 'Directory not found or path not allowed.' );
-		}
+		$relative = self::sanitize_relative_path( $relative );
 
 		$candidate = '' === $relative ? WP_CONTENT_DIR : WP_CONTENT_DIR . '/' . $relative;
 		$content_root = realpath( WP_CONTENT_DIR );
@@ -158,18 +193,13 @@ final class File_Reader {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function write_file( string $relative, string $content, bool $create_dirs = false ) {
-		$relative = ltrim( str_replace( '\\', '/', $relative ), '/' );
-		if ( '' === $relative || false !== strpos( $relative, '..' ) ) {
+		$relative = self::sanitize_relative_path( $relative );
+		if ( '' === $relative ) {
 			return new \WP_Error( 'invalid_path', 'Path not allowed (must be under wp-content, no ..).' );
 		}
 
-		$blocked = array(
-			'inyfinn-cursor-bridge/cursor-setup.json',
-		);
-		foreach ( $blocked as $block ) {
-			if ( $relative === $block ) {
-				return new \WP_Error( 'blocked', 'Use run-auto-setup to regenerate setup file.' );
-			}
+		if ( self::is_blocked_path( $relative ) ) {
+			return new \WP_Error( 'blocked', 'Use run-auto-setup to regenerate setup file.' );
 		}
 
 		$absolute = WP_CONTENT_DIR . '/' . $relative;

@@ -1,60 +1,191 @@
 # Inyfinn Cursor Bridge MCP
 
-**Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp
+**Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp  
+**Wersja:** 1.2.0  
+**Licencja:** GPL-2.0-or-later
 
-Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) **0.5.0** + auto-setup dla **Cursor IDE**.
+Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).
 
-## Co robi v1.1.0 (zero ręcznej konfiguracji)
+Łączy WordPress z Cursorem przez MCP — bez ręcznego tworzenia Application Password, bez kopiowania haseł z panelu WP.
 
-Po **aktywacji** wtyczki (WP Admin → Wtyczki → Aktywuj):
+---
 
-1. Kopiuje **mu-plugin loader** do `wp-content/mu-plugins/` (automatycznie)
-2. Tworzy **Application Password** dla administratora (automatycznie)
-3. Zapisuje **`wp-content/inyfinn-cursor-bridge/cursor-setup.json`** — Cursor czyta ten plik z workspace SFTP
-4. Wypełnia **DB_*** z `wp-config` w bundle `.env`
-5. Udostępnia **MCP abilities** + zapis plików w `wp-content` (`write-wp-content-file`)
+## Co robi ta wtyczka?
 
-W Cursorze wystarczy napisać:
+| Po aktywacji | Efekt |
+|--------------|--------|
+| MU-plugin loader | Wtyczka ładuje się nawet po problemach z `active_plugins` |
+| Application Password | Automatyczne hasło „Cursor MCP (Inyfinn)” dla admina |
+| `cursor-setup.json` | Plik konfiguracyjny dla agenta Cursor (SFTP workspace) |
+| Bundle `.env` + `mcp.json` | DB z `wp-config`, MCP endpoint, brakujące pola SSH |
+| 19 abilities MCP | Ping, manifest, pliki, WooCommerce, health-check, repair |
+| Panel diagnostyczny | **Ustawienia → Cursor Bridge** — testy + przyciski Napraw |
 
-> **uruchom wtyczkę inyfinn-cursor-bridge-mcp**
-
-Agent: czyta `cursor-setup.json` → zapisuje `.env` i `mcp.json` → pyta tylko o brakujące pola (SSH, ścieżka workspace).
+---
 
 ## Wymagania
 
-- WordPress **6.8+** (Abilities API)
-- PHP 7.4+
-- Cursor + Node (npx) dla `@automattic/mcp-wordpress-remote`
+| Składnik | Wersja |
+|----------|--------|
+| WordPress | **6.8+** (Abilities API) |
+| PHP | 7.4+ |
+| Cursor IDE | z obsługą MCP |
+| Node.js | dla `npx @automattic/mcp-wordpress-remote` |
+| HTTPS | wymagane dla Application Passwords |
 
-## Instalacja
+**Nie instaluj** osobnego pluginu `mcp-adapter` — wtyczka go zastępuje i dezaktywuje konflikt.
 
-1. Skopiuj folder do `wp-content/plugins/inyfinn-cursor-bridge-mcp/`
-2. **Aktywuj** w panelu WP — reszta dzieje się sama
-3. Otwórz `public_html` jako workspace w Cursorze (SFTP)
-4. W Cursorze: „uruchom wtyczkę inyfinn-cursor-bridge-mcp”
+---
 
-Opcjonalnie: **Ustawienia → Cursor Bridge** — pola SSH/FTP/workspace.
+## Instalacja na nowym WordPressie (5 minut)
 
-## Trzy warstwy
+### Krok 1 — Wgraj wtyczkę
 
-| Warstwa | Mechanizm |
-|---------|-----------|
-| Pliki (SFTP) | Workspace Cursor na `public_html` |
-| Pliki (zdalnie) | MCP `write-wp-content-file` / `read-wp-content-file` |
-| WordPress / DB | MCP → ta wtyczka |
-| SSH / WP-CLI | Terminal + `.env` (wartości z setup bundle) |
+```text
+wp-content/plugins/inyfinn-cursor-bridge-mcp/
+```
+
+Źródła:
+- GitHub Releases: https://github.com/inyfinn/inyfinn-cursor-bridge-mcp/releases
+- lub `git clone` do `plugins/`
+
+### Krok 2 — Aktywuj
+
+**WP Admin → Wtyczki → Aktywuj „Inyfinn Cursor Bridge MCP”**
+
+Auto-setup uruchamia się przy aktywacji (mu-plugin, hasło, setup file).
+
+### Krok 3 — Sprawdź diagnostykę
+
+**Ustawienia → Cursor Bridge**
+
+Wszystkie wiersze w tabeli **Diagnostyka** powinny być **✓ OK**.  
+Jeśli nie — kliknij **Napraw** przy danym wierszu lub **Pełny auto-setup**.
+
+### Krok 4 — Cursor workspace
+
+1. Zamontuj folder `public_html` w Cursorze (SFTP / dysk sieciowy).
+2. W chacie Cursora napisz **dokładnie**:
+
+```text
+uruchom wtyczkę inyfinn-cursor-bridge-mcp
+```
+
+Agent przeczyta `wp-content/inyfinn-cursor-bridge/cursor-setup.json`, zapisze `.env` i `mcp.json`, zapyta tylko o brakujące pola (SSH, ścieżka workspace).
+
+### Krok 5 — Zweryfikuj połączenie MCP
+
+W Cursorze (po skonfigurowaniu MCP):
+
+| Test | Oczekiwany wynik |
+|------|------------------|
+| `cursor-bridge/ping` | `ok: true`, `bridge_version: "1.2.0"` |
+| `cursor-bridge/health-check` | `healthy: true`, `failed_count: 0` |
+| discover-abilities | ≥19 pozycji `cursor-bridge/*` |
+
+Szczegóły: [docs/INSTALLATION.md](docs/INSTALLATION.md)
+
+---
+
+## Jak wiedzieć, że działa?
+
+### W panelu WordPress
+
+**Ustawienia → Cursor Bridge** → zielony baner: *„Wszystko działa — wtyczka gotowa dla Cursor IDE.”*
+
+### W Cursorze (po MCP)
+
+```
+Wywołaj cursor-bridge/ping przez MCP
+```
+
+Odpowiedź:
+
+```json
+{
+  "ok": true,
+  "bridge_version": "1.2.0",
+  "public_abilities": 19
+}
+```
+
+### Przez MCP health-check
+
+```
+Wywołaj cursor-bridge/health-check
+```
+
+Odpowiedź: `"healthy": true`, `"overall": "ok"`.
+
+---
+
+## Trzy warstwy pracy
+
+| Warstwa | Mechanizm | Kiedy |
+|---------|-----------|-------|
+| **Pliki lokalnie** | Cursor workspace (SFTP / dysk) | Edycja PHP, CSS, JS — preferowane |
+| **Pliki zdalnie** | MCP `write-wp-content-file` | Gdy brak SFTP |
+| **WordPress / DB** | MCP → REST → abilities | Manifest, pluginy, WooCommerce |
+| **SSH / WP-CLI** | Terminal + `.env` | Cache, migracje, batch |
+
+---
 
 ## Abilities (`cursor-bridge/*`)
 
 | Ability | Opis |
 |---------|------|
-| `run-auto-setup` | Pełny bootstrap (hasło, mu-plugin, setup.json) |
-| `get-cursor-bundle` | mcp.json + .env + sekrety dla admina |
-| `update-connection-settings` | SSH/FTP/workspace |
+| `ping` | Health check wersji |
+| `health-check` | Pełna diagnostyka (12 testów) |
+| `repair` | Naprawa jednego komponentu |
+| `run-auto-setup` | Pełny bootstrap |
+| `get-cursor-bundle` | mcp.json + .env + sekrety (admin) |
+| `get-site-manifest` | Kontekst strony bez sekretów |
 | `write-wp-content-file` | Zapis pliku w wp-content |
-| `get-site-manifest` | Kontekst strony, wtyczki, ścieżki |
-| `list-plugins` / `list-themes` / `wc-*` | Audyt |
+| `read-wp-content-file` | Odczyt pliku (max 512 KB) |
+| `list-plugins` / `list-themes` | Audyt |
+| `wc-list-products` / `wc-list-orders` | WooCommerce |
 
-## Licencja
+Pełna lista: [docs/ABILITIES.md](docs/ABILITIES.md)
 
-GPL-2.0-or-later
+---
+
+## Naprawa problemów
+
+1. **Panel WP:** Ustawienia → Cursor Bridge → przycisk **Napraw** przy czerwonym wierszu
+2. **MCP:** `cursor-bridge/repair` z `action: "full_bootstrap"`
+3. **Dokumentacja:** [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+
+---
+
+## Bezpieczeństwo
+
+- `cursor-setup.json` — `chmod 0600`, katalog chroniony `.htaccess`
+- Odczyt setup file przez MCP **zablokowany** — sekrety tylko przez `get-cursor-bundle` (admin)
+- Application Password szyfrowane w opcji WP (`AUTH_KEY`)
+- Usuń `cursor-setup.json` po pierwszym udanym połączeniu Cursora
+
+---
+
+## Dokumentacja
+
+| Plik | Zawartość |
+|------|-----------|
+| [docs/INSTALLATION.md](docs/INSTALLATION.md) | Instalacja krok po kroku |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Rozwiązywanie problemów |
+| [docs/ABILITIES.md](docs/ABILITIES.md) | Reference abilities |
+| [AGENTS.md](AGENTS.md) | Instrukcja dla agenta Cursor |
+| [CHANGELOG.md](CHANGELOG.md) | Historia wersji |
+
+---
+
+## Testy (developers)
+
+```bash
+wp eval-file wp-content/plugins/inyfinn-cursor-bridge-mcp/tests/smoke-cursor-bridge.php
+```
+
+---
+
+## Autor
+
+[Inyfinn](https://inyfinn.pl) — ETA Innovations i projekty WordPress/WooCommerce.

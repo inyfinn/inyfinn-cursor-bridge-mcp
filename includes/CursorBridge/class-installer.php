@@ -13,8 +13,12 @@ final class Installer {
 
 	private const SETUP_DIR = 'inyfinn-cursor-bridge';
 
+	/** @var bool */
+	private static $defer_conflict_deactivation = false;
+
 	public static function init(): void {
 		add_action( 'admin_init', array( __CLASS__, 'maybe_self_heal' ), 5 );
+		add_action( 'shutdown', array( __CLASS__, 'run_deferred_conflict_deactivation' ), 1 );
 	}
 
 	/**
@@ -23,26 +27,70 @@ final class Installer {
 	 * @return array<string, mixed>
 	 */
 	public static function full_bootstrap( bool $rotate_password = true ): array {
+		$app_password = Credentials::ensure_application_password( $rotate_password );
+
 		$results = array(
+			'plugin_active'   => self::ensure_plugin_active(),
 			'mu_plugin'       => self::ensure_mu_plugin_loader(),
 			'conflicts'       => self::deactivate_conflicting_plugins(),
 			'profile'         => self::ensure_hosting_profile(),
-			'app_password'    => Credentials::ensure_application_password( $rotate_password ),
-			'setup_file'      => self::write_setup_file(),
+			'app_password'    => $app_password,
+			'setup_file'      => array( 'ok' => false, 'message' => 'Skipped — app password not ready.' ),
 			'permalink_flush' => self::flush_permalinks(),
 		);
 
+		if ( ! empty( $app_password['ok'] ) ) {
+			$bundle                 = Credentials::build_cursor_bundle( true, $app_password );
+			$results['setup_file']  = self::write_setup_file( $bundle );
+			$results['bundle']      = $bundle;
+		} else {
+			$results['bundle'] = Credentials::build_cursor_bundle( false );
+		}
+
+		$results['ok']     = self::is_bootstrap_successful( $results );
+		$results['errors'] = self::collect_bootstrap_errors( $results );
+
 		update_option( 'inyfinn_cursor_bridge_last_bootstrap', gmdate( 'c' ), false );
 
-		$bundle = Credentials::build_cursor_bundle( true );
+		return $results;
+	}
 
-		return array_merge(
-			$results,
-			array(
-				'ok'     => true,
-				'bundle' => $bundle,
-			)
-		);
+	/**
+	 * @param array<string, mixed> $results
+	 */
+	private static function is_bootstrap_successful( array $results ): bool {
+		foreach ( array( 'plugin_active', 'mu_plugin', 'app_password', 'setup_file' ) as $key ) {
+			if ( empty( $results[ $key ]['ok'] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * @param array<string, mixed> $results
+	 * @return list<string>
+	 */
+	private static function collect_bootstrap_errors( array $results ): array {
+		$steps  = array( 'plugin_active', 'mu_plugin', 'conflicts', 'profile', 'app_password', 'setup_file', 'permalink_flush' );
+		$errors = array();
+
+		foreach ( $steps as $step ) {
+			if ( ! isset( $results[ $step ] ) || ! is_array( $results[ $step ] ) ) {
+				continue;
+			}
+			$result = $results[ $step ];
+			if ( ! empty( $result['ok'] ) ) {
+				continue;
+			}
+			if ( ! empty( $result['message'] ) ) {
+				$errors[] = $step . ': ' . $result['message'];
+			} else {
+				$errors[] = $step . ': failed';
+			}
+		}
+
+		return $errors;
 	}
 
 	public static function maybe_self_heal(): void {
@@ -50,13 +98,28 @@ final class Installer {
 			return;
 		}
 
+		if ( get_transient( 'inyfinn_cursor_bridge_self_heal' ) ) {
+			return;
+		}
+		set_transient( 'inyfinn_cursor_bridge_self_heal', 1, HOUR_IN_SECONDS );
+
+		$healed = false;
+
 		if ( ! self::mu_plugin_loader_present() ) {
 			self::ensure_mu_plugin_loader();
+			$healed = true;
 		}
 
 		if ( ! Credentials::has_application_password() ) {
-			Credentials::ensure_application_password( false );
-			self::write_setup_file();
+			$app = Credentials::ensure_application_password( false );
+			if ( ! empty( $app['ok'] ) ) {
+				self::write_setup_file( Credentials::build_cursor_bundle( true, $app ) );
+			}
+			$healed = true;
+		}
+
+		if ( $healed ) {
+			update_option( 'inyfinn_cursor_bridge_last_self_heal', gmdate( 'c' ), false );
 		}
 	}
 
@@ -64,11 +127,11 @@ final class Installer {
 	 * @return array<string, mixed>
 	 */
 	public static function ensure_mu_plugin_loader(): array {
-		$mu_dir   = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins';
-		$dest     = trailingslashit( $mu_dir ) . '000-inyfinn-cursor-bridge-mcp-loader.php';
-		$source   = INYFINN_CURSOR_BRIDGE_MCP_DIR . 'install/mu-plugins/000-inyfinn-cursor-bridge-mcp-loader.php';
-		$created  = false;
-		$updated  = false;
+		$mu_dir  = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins';
+		$dest    = trailingslashit( $mu_dir ) . '000-inyfinn-cursor-bridge-mcp-loader.php';
+		$source  = INYFINN_CURSOR_BRIDGE_MCP_DIR . 'install/mu-plugins/000-inyfinn-cursor-bridge-mcp-loader.php';
+		$created = false;
+		$updated = false;
 
 		if ( ! is_dir( $mu_dir ) ) {
 			wp_mkdir_p( $mu_dir );
@@ -92,7 +155,7 @@ final class Installer {
 		}
 
 		return array(
-			'ok'      => file_exists( $dest ),
+			'ok'      => file_exists( $dest ) && is_readable( $dest ),
 			'path'    => $dest,
 			'created' => $created,
 			'updated' => $updated,
@@ -107,19 +170,84 @@ final class Installer {
 	}
 
 	/**
+	 * Ensure plugin is in active_plugins (mu-loader alone is not enough for WP admin / updates).
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function ensure_plugin_active(): array {
+		if ( ! function_exists( 'is_plugin_active' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$plugin = plugin_basename( INYFINN_CURSOR_BRIDGE_MCP_FILE );
+
+		if ( is_plugin_active( $plugin ) ) {
+			return array(
+				'ok'        => true,
+				'activated' => false,
+			);
+		}
+
+		if ( doing_action( 'activate_plugin' ) || doing_action( 'activate_' . $plugin ) ) {
+			return array(
+				'ok'        => true,
+				'activated' => false,
+				'skipped'   => 'activation_in_progress',
+			);
+		}
+
+		$result = activate_plugin( $plugin, '', false, true );
+		if ( is_wp_error( $result ) ) {
+			return array(
+				'ok'      => false,
+				'message' => $result->get_error_message(),
+			);
+		}
+
+		return array(
+			'ok'        => true,
+			'activated' => true,
+		);
+	}
+
+	/**
 	 * @return array<string, mixed>
 	 */
 	public static function deactivate_conflicting_plugins(): array {
+		if ( self::should_defer_conflict_deactivation() ) {
+			self::$defer_conflict_deactivation = true;
+			return array(
+				'ok'        => true,
+				'deactivated' => array(),
+				'scheduled' => true,
+			);
+		}
+
+		return self::run_conflict_deactivation();
+	}
+
+	public static function run_deferred_conflict_deactivation(): void {
+		if ( ! self::$defer_conflict_deactivation ) {
+			return;
+		}
+		self::$defer_conflict_deactivation = false;
+		self::run_conflict_deactivation();
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function run_conflict_deactivation(): array {
 		if ( ! function_exists( 'deactivate_plugins' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
 
-		$conflicts = array(
+		$conflicts   = array(
 			'mcp-adapter/mcp-adapter.php',
 			'wordpress-mcp-adapter/mcp-adapter.php',
 		);
-
 		$deactivated = array();
+
 		foreach ( $conflicts as $plugin ) {
 			if ( is_plugin_active( $plugin ) ) {
 				deactivate_plugins( $plugin, true );
@@ -133,9 +261,17 @@ final class Installer {
 		);
 	}
 
-	/**
-	 * @return array<string, mixed>
-	 */
+	private static function should_defer_conflict_deactivation(): bool {
+		if ( doing_action( 'activate_plugin' ) || doing_action( 'activate_' . plugin_basename( INYFINN_CURSOR_BRIDGE_MCP_FILE ) ) ) {
+			return true;
+		}
+		return ! did_action( 'plugins_loaded' );
+	}
+
+	public static function ensure_hosting_profile_public(): array {
+		return self::ensure_hosting_profile();
+	}
+
 	private static function ensure_hosting_profile(): array {
 		$profile = get_option( 'inyfinn_cursor_bridge_profile', array() );
 		if ( ! is_array( $profile ) ) {
@@ -153,38 +289,50 @@ final class Installer {
 
 		update_option( 'inyfinn_cursor_bridge_profile', $profile, false );
 
-		return $profile;
+		return array_merge( $profile, array( 'ok' => true ) );
 	}
 
 	/**
-	 * Write setup JSON for Cursor workspace (SFTP) — zero manual Application Password.
+	 * Write setup JSON for Cursor workspace (SFTP).
 	 *
+	 * @param array<string, mixed>|null $bundle
 	 * @return array<string, mixed>
 	 */
-	public static function write_setup_file(): array {
+	public static function write_setup_file( ?array $bundle = null ): array {
 		self::ensure_setup_directory();
 
-		$bundle = Credentials::build_cursor_bundle( true );
-		$path   = self::setup_file_path();
+		if ( null === $bundle ) {
+			$bundle = Credentials::build_cursor_bundle( true );
+		}
+
+		$path = self::setup_file_path();
 
 		$payload = array_merge(
 			$bundle,
 			array(
 				'plugin'       => 'inyfinn-cursor-bridge-mcp',
-				'version'      => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.1.0',
+				'version'      => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.1.1',
 				'generated_at' => gmdate( 'c' ),
 				'cursor_task'  => 'Przeczytaj ten plik z workspace (SFTP). Uzupełnij ~/.cursor/mcp.json i .env w public_html. Wywołaj cursor-bridge/run-auto-setup przez MCP. Usuń ten plik po sukcesie.',
 			)
 		);
 
-		$written = file_put_contents( $path, wp_json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
+		$written = file_put_contents(
+			$path,
+			wp_json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
+			LOCK_EX
+		);
+
+		if ( false !== $written && file_exists( $path ) ) {
+			@chmod( $path, 0600 );
+		}
 
 		return array(
-			'ok'               => false !== $written,
-			'path'             => $path,
-			'path_relative'    => 'wp-content/' . self::SETUP_DIR . '/cursor-setup.json',
-			'workspace_hint'   => 'Otwórz folder public_html w Cursorze — agent znajdzie plik bez ręcznej konfiguracji.',
-			'missing_fields'   => $bundle['missing_fields'] ?? array(),
+			'ok'             => false !== $written,
+			'path'           => $path,
+			'path_relative'  => 'wp-content/' . self::SETUP_DIR . '/cursor-setup.json',
+			'workspace_hint' => 'Otwórz folder public_html w Cursorze — agent znajdzie plik bez ręcznej konfiguracji.',
+			'missing_fields' => $bundle['missing_fields'] ?? array(),
 		);
 	}
 
@@ -194,6 +342,20 @@ final class Installer {
 
 	public static function setup_file_relative(): string {
 		return self::SETUP_DIR . '/cursor-setup.json';
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public static function ensure_setup_directory_public(): array {
+		self::ensure_setup_directory();
+		$dir = trailingslashit( WP_CONTENT_DIR ) . self::SETUP_DIR;
+
+		return array(
+			'ok'       => is_dir( $dir ) && file_exists( $dir . '/.htaccess' ),
+			'path'     => $dir,
+			'htaccess' => file_exists( $dir . '/.htaccess' ),
+		);
 	}
 
 	private static function ensure_setup_directory(): void {
@@ -216,12 +378,19 @@ final class Installer {
 	/**
 	 * @return array<string, mixed>
 	 */
+	public static function flush_permalinks_public(): array {
+		return self::flush_permalinks();
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
 	private static function flush_permalinks(): array {
 		flush_rewrite_rules( false );
 
 		return array(
-			'ok'             => true,
-			'permalink_ok'   => (bool) get_option( 'permalink_structure' ),
+			'ok'           => true,
+			'permalink_ok' => (bool) get_option( 'permalink_structure' ),
 		);
 	}
 
@@ -229,12 +398,21 @@ final class Installer {
 	 * @return array<string, mixed>
 	 */
 	public static function get_status(): array {
+		if ( ! function_exists( 'is_plugin_active' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$plugin_file = plugin_basename( INYFINN_CURSOR_BRIDGE_MCP_FILE );
+
 		return array(
+			'plugin_active'    => is_plugin_active( $plugin_file ),
 			'mu_plugin_loader' => self::mu_plugin_loader_present(),
 			'setup_file'       => is_readable( self::setup_file_path() ),
 			'setup_file_path'  => self::setup_file_path(),
 			'app_password'     => Credentials::has_application_password(),
+			'mcp_username'     => Credentials::get_mcp_username(),
 			'last_bootstrap'   => get_option( 'inyfinn_cursor_bridge_last_bootstrap', null ),
+			'last_self_heal'   => get_option( 'inyfinn_cursor_bridge_last_self_heal', null ),
 		);
 	}
 }

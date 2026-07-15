@@ -11,9 +11,11 @@ defined( 'ABSPATH' ) || exit;
 
 final class Credentials {
 
-	private const APP_PASSWORD_NAME = 'Cursor MCP (Inyfinn)';
+	private const APP_PASSWORD_NAME   = 'Cursor MCP (Inyfinn)';
 	private const OPTION_APP_UUID     = 'inyfinn_cursor_bridge_app_password_uuid';
-	private const OPTION_CONNECTION = 'inyfinn_cursor_bridge_connection';
+	private const OPTION_APP_ENC      = 'inyfinn_cursor_bridge_app_password_enc';
+	private const OPTION_MCP_USER_ID  = 'inyfinn_cursor_bridge_mcp_user_id';
+	private const OPTION_CONNECTION   = 'inyfinn_cursor_bridge_connection';
 
 	public static function get_connection(): array {
 		$stored = get_option( self::OPTION_CONNECTION, array() );
@@ -22,17 +24,17 @@ final class Credentials {
 		}
 
 		$defaults = array(
-			'mcp_server_name'         => 'seohost-wordpress',
-			'ssh_host'                => '',
-			'ssh_user'                => '',
-			'ssh_port'                => 22,
-			'ssh_remote_public_html'  => '',
-			'workspace_public_html'   => '',
-			'ftp_host'                => '',
-			'ftp_user'                => '',
-			'ftp_port'                => 21,
-			'ftp_remote_path'         => '',
-			'ftp_pass_encrypted'      => '',
+			'mcp_server_name'        => 'seohost-wordpress',
+			'ssh_host'               => '',
+			'ssh_user'               => '',
+			'ssh_port'               => 22,
+			'ssh_remote_public_html' => '',
+			'workspace_public_html'  => '',
+			'ftp_host'               => '',
+			'ftp_user'               => '',
+			'ftp_port'               => 21,
+			'ftp_remote_path'        => '',
+			'ftp_pass_encrypted'     => '',
 		);
 
 		return array_merge( $defaults, $stored );
@@ -94,6 +96,14 @@ final class Credentials {
 		);
 	}
 
+	public static function application_passwords_available(): bool {
+		if ( function_exists( 'wp_is_application_passwords_available' ) ) {
+			return wp_is_application_passwords_available();
+		}
+
+		return class_exists( '\WP_Application_Passwords' );
+	}
+
 	public static function has_application_password(): bool {
 		$uuid = get_option( self::OPTION_APP_UUID, '' );
 		if ( ! is_string( $uuid ) || '' === $uuid ) {
@@ -105,9 +115,7 @@ final class Credentials {
 			return false;
 		}
 
-		if ( ! class_exists( '\WP_Application_Passwords' ) ) {
-			require_once ABSPATH . WPINC . '/class-wp-application-passwords.php';
-		}
+		self::load_application_passwords_class();
 
 		foreach ( \WP_Application_Passwords::get_user_application_passwords( $user_id ) as $item ) {
 			if ( isset( $item['uuid'] ) && $item['uuid'] === $uuid ) {
@@ -118,13 +126,28 @@ final class Credentials {
 		return false;
 	}
 
+	public static function get_mcp_username(): string {
+		$user_id = self::get_mcp_user_id();
+		if ( ! $user_id ) {
+			return '';
+		}
+
+		$user = get_userdata( $user_id );
+		return $user ? (string) $user->user_login : '';
+	}
+
 	/**
 	 * @return array<string, mixed>
 	 */
 	public static function ensure_application_password( bool $rotate = false ): array {
-		if ( ! class_exists( '\WP_Application_Passwords' ) ) {
-			require_once ABSPATH . WPINC . '/class-wp-application-passwords.php';
+		if ( ! self::application_passwords_available() ) {
+			return array(
+				'ok'      => false,
+				'message' => 'Application passwords are not available on this site.',
+			);
 		}
+
+		self::load_application_passwords_class();
 
 		$user_id = self::get_mcp_user_id();
 		if ( ! $user_id ) {
@@ -142,30 +165,35 @@ final class Credentials {
 			);
 		}
 
-		$existing_uuid = get_option( self::OPTION_APP_UUID, '' );
-		$plain         = null;
+		$had_uuid = is_string( get_option( self::OPTION_APP_UUID, '' ) ) && '' !== get_option( self::OPTION_APP_UUID, '' );
+		$plain    = null;
+		$rotated  = false;
 
 		if ( $rotate || ! self::has_application_password() ) {
-			self::delete_named_app_passwords( $user_id );
-
-			$created = \WP_Application_Passwords::create_new_application_password(
-				$user_id,
-				array( 'name' => self::APP_PASSWORD_NAME )
-			);
-
-			if ( is_wp_error( $created ) ) {
-				return array(
-					'ok'      => false,
-					'message' => $created->get_error_message(),
-				);
+			$created = self::create_application_password( $user_id );
+			if ( empty( $created['ok'] ) ) {
+				return $created;
 			}
-
-			$plain = $created[0];
-			$item  = $created[1];
-			update_option( self::OPTION_APP_UUID, $item['uuid'] ?? '', false );
-			update_option( 'inyfinn_cursor_bridge_app_password_enc', self::encrypt_secret( $plain ), false );
+			$plain   = $created['app_password'];
+			$rotated = true;
 		} else {
-			$plain = self::decrypt_secret( (string) get_option( 'inyfinn_cursor_bridge_app_password_enc', '' ) );
+			$plain = self::decrypt_secret( (string) get_option( self::OPTION_APP_ENC, '' ) );
+			if ( '' === $plain ) {
+				// Encrypted copy lost or AUTH_KEY changed — rotate to recover.
+				$created = self::create_application_password( $user_id );
+				if ( empty( $created['ok'] ) ) {
+					return $created;
+				}
+				$plain   = $created['app_password'];
+				$rotated = true;
+			}
+		}
+
+		if ( ! is_string( $plain ) || '' === $plain ) {
+			return array(
+				'ok'      => false,
+				'message' => 'Application password could not be retrieved.',
+			);
 		}
 
 		return array(
@@ -173,7 +201,39 @@ final class Credentials {
 			'user_id'      => $user_id,
 			'username'     => $user->user_login,
 			'app_password' => $plain,
-			'rotated'      => $rotate || ! $existing_uuid,
+			'rotated'      => $rotated || ! $had_uuid,
+		);
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function create_application_password( int $user_id ): array {
+		self::delete_named_app_passwords( $user_id );
+
+		$created = \WP_Application_Passwords::create_new_application_password(
+			$user_id,
+			array( 'name' => self::APP_PASSWORD_NAME )
+		);
+
+		if ( is_wp_error( $created ) ) {
+			return array(
+				'ok'      => false,
+				'message' => $created->get_error_message(),
+			);
+		}
+
+		$plain = $created[0];
+		$item  = $created[1];
+
+		update_option( self::OPTION_APP_UUID, $item['uuid'] ?? '', false );
+		update_option( self::OPTION_APP_ENC, self::encrypt_secret( $plain ), false );
+		update_option( self::OPTION_MCP_USER_ID, $user_id, false );
+
+		return array(
+			'ok'           => true,
+			'user_id'      => $user_id,
+			'app_password' => $plain,
 		);
 	}
 
@@ -186,62 +246,91 @@ final class Credentials {
 	}
 
 	private static function get_mcp_user_id(): int {
+		$stored = (int) get_option( self::OPTION_MCP_USER_ID, 0 );
+		if ( $stored > 0 ) {
+			$user = get_userdata( $stored );
+			if ( $user && user_can( $user, 'manage_options' ) ) {
+				return $stored;
+			}
+		}
+
 		$users = get_users(
 			array(
-				'role'   => 'administrator',
-				'number' => 1,
+				'role'    => 'administrator',
+				'number'  => 1,
 				'orderby' => 'ID',
 				'order'   => 'ASC',
 			)
 		);
 
 		if ( ! empty( $users[0] ) ) {
-			return (int) $users[0]->ID;
+			$user_id = (int) $users[0]->ID;
+			update_option( self::OPTION_MCP_USER_ID, $user_id, false );
+			return $user_id;
 		}
 
-		return (int) get_current_user_id();
+		$current = (int) get_current_user_id();
+		if ( $current > 0 && user_can( $current, 'manage_options' ) ) {
+			update_option( self::OPTION_MCP_USER_ID, $current, false );
+			return $current;
+		}
+
+		return 0;
 	}
 
 	/**
-	 * Full bundle for Cursor — includes secrets (admin / setup file only).
+	 * Full bundle for Cursor — secrets only when requested.
 	 *
+	 * @param array<string, mixed>|null $app_context Optional result from ensure_application_password().
 	 * @return array<string, mixed>
 	 */
-	public static function build_cursor_bundle( bool $include_secrets = false ): array {
+	public static function build_cursor_bundle( bool $include_secrets = false, ?array $app_context = null ): array {
 		$profile    = Hosting_Profiles::get_profile();
 		$connection = self::get_connection();
 		$db         = self::get_db_config();
 		$site_url   = untrailingslashit( home_url( '/' ) );
 		$mcp_url    = rest_url( 'mcp/mcp-adapter-default-server' );
+		$user_login = self::get_mcp_username();
+		$plain_pass = '';
 
-		$app = self::ensure_application_password( false );
-		$user_login = $app['username'] ?? '';
+		if ( $include_secrets ) {
+			if ( is_array( $app_context ) && ! empty( $app_context['ok'] ) && ! empty( $app_context['app_password'] ) ) {
+				$user_login = (string) ( $app_context['username'] ?? $user_login );
+				$plain_pass = (string) $app_context['app_password'];
+			} else {
+				$app = self::ensure_application_password( false );
+				if ( ! empty( $app['ok'] ) && ! empty( $app['app_password'] ) ) {
+					$user_login = (string) ( $app['username'] ?? $user_login );
+					$plain_pass = (string) $app['app_password'];
+				}
+			}
+		}
 
 		$env = array(
-			'WP_SITE_URL'              => $site_url,
-			'WP_MCP_API_URL'           => $mcp_url,
-			'WP_MCP_USERNAME'          => $user_login,
-			'WP_MCP_APP_PASSWORD'      => $include_secrets ? ( $app['app_password'] ?? '' ) : '${env:WP_MCP_APP_PASSWORD}',
-			'DB_NAME'                  => $db['DB_NAME'],
-			'DB_USER'                  => $db['DB_USER'],
-			'DB_PASSWORD'              => $include_secrets ? $db['DB_PASSWORD'] : '${env:DB_PASSWORD}',
-			'DB_HOST'                  => $db['DB_HOST'],
-			'DB_TABLE_PREFIX'          => $db['table_prefix'],
-			'MYSQL_DATABASE'           => $db['DB_NAME'],
-			'MYSQL_USER'               => $db['DB_USER'],
-			'MYSQL_PASSWORD'           => $include_secrets ? $db['DB_PASSWORD'] : '${env:MYSQL_PASSWORD}',
-			'MYSQL_HOST'               => $db['DB_HOST'],
-			'SSH_HOST'                 => $connection['ssh_host'],
-			'SSH_USER'                 => $connection['ssh_user'],
-			'SSH_PORT'                 => (string) $connection['ssh_port'],
-			'SSH_REMOTE_PUBLIC_HTML'   => $connection['ssh_remote_public_html'],
-			'WORKSPACE_PUBLIC_HTML'    => $connection['workspace_public_html'],
-			'FTP_HOST'                 => $connection['ftp_host'],
-			'FTP_USER'                 => $connection['ftp_user'],
-			'FTP_PORT'                 => (string) $connection['ftp_port'],
-			'FTP_REMOTE_PATH'          => $connection['ftp_remote_path'],
-			'WP_CLI_COMMAND'           => $profile['wp_cli_hint'] ?? 'wp',
-			'WP_ENVIRONMENT'           => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'production',
+			'WP_SITE_URL'            => $site_url,
+			'WP_MCP_API_URL'         => $mcp_url,
+			'WP_MCP_USERNAME'        => $user_login,
+			'WP_MCP_APP_PASSWORD'    => $include_secrets && '' !== $plain_pass ? $plain_pass : '${env:WP_MCP_APP_PASSWORD}',
+			'DB_NAME'                => $db['DB_NAME'],
+			'DB_USER'                => $db['DB_USER'],
+			'DB_PASSWORD'            => $include_secrets ? $db['DB_PASSWORD'] : '${env:DB_PASSWORD}',
+			'DB_HOST'                => $db['DB_HOST'],
+			'DB_TABLE_PREFIX'        => $db['table_prefix'],
+			'MYSQL_DATABASE'         => $db['DB_NAME'],
+			'MYSQL_USER'             => $db['DB_USER'],
+			'MYSQL_PASSWORD'         => $include_secrets ? $db['DB_PASSWORD'] : '${env:MYSQL_PASSWORD}',
+			'MYSQL_HOST'             => $db['DB_HOST'],
+			'SSH_HOST'               => $connection['ssh_host'],
+			'SSH_USER'               => $connection['ssh_user'],
+			'SSH_PORT'               => (string) $connection['ssh_port'],
+			'SSH_REMOTE_PUBLIC_HTML' => $connection['ssh_remote_public_html'],
+			'WORKSPACE_PUBLIC_HTML'  => $connection['workspace_public_html'],
+			'FTP_HOST'               => $connection['ftp_host'],
+			'FTP_USER'               => $connection['ftp_user'],
+			'FTP_PORT'               => (string) $connection['ftp_port'],
+			'FTP_REMOTE_PATH'        => $connection['ftp_remote_path'],
+			'WP_CLI_COMMAND'         => $profile['wp_cli_hint'] ?? 'wp',
+			'WP_ENVIRONMENT'         => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'production',
 		);
 
 		if ( $include_secrets && ! empty( $connection['ftp_pass_encrypted'] ) ) {
@@ -269,8 +358,8 @@ final class Credentials {
 					),
 					'env'     => array(
 						'WP_API_URL'      => $mcp_url,
-						'WP_API_USERNAME' => $include_secrets ? $user_login : '${env:WP_MCP_USERNAME}',
-						'WP_API_PASSWORD' => $include_secrets ? ( $app['app_password'] ?? '' ) : '${env:WP_MCP_APP_PASSWORD}',
+						'WP_API_USERNAME' => $include_secrets && '' !== $user_login ? $user_login : '${env:WP_MCP_USERNAME}',
+						'WP_API_PASSWORD' => $include_secrets && '' !== $plain_pass ? $plain_pass : '${env:WP_MCP_APP_PASSWORD}',
 					),
 				),
 			),
@@ -282,18 +371,19 @@ final class Credentials {
 		}
 
 		return array(
-			'site_url'           => $site_url,
-			'mcp_endpoint'       => $mcp_url,
-			'username'           => $user_login,
-			'app_password'       => $include_secrets ? ( $app['app_password'] ?? '' ) : null,
-			'env'                => $env,
-			'env_file_content'   => implode( "\n", $env_lines ) . "\n",
-			'mcp_json'           => $mcp_json,
-			'mcp_json_content'   => wp_json_encode( $mcp_json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n",
-			'missing_fields'     => $missing,
-			'hosting_provider'   => $profile['hosting_provider'] ?? 'generic',
-			'setup_file_relative'=> Installer::setup_file_relative(),
-			'cursor_steps'       => array(
+			'site_url'            => $site_url,
+			'mcp_endpoint'        => $mcp_url,
+			'username'            => $user_login,
+			'app_password'        => $include_secrets && '' !== $plain_pass ? $plain_pass : null,
+			'has_app_password'    => self::has_application_password(),
+			'env'                 => $env,
+			'env_file_content'    => implode( "\n", $env_lines ) . "\n",
+			'mcp_json'            => $mcp_json,
+			'mcp_json_content'    => wp_json_encode( $mcp_json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n",
+			'missing_fields'      => $missing,
+			'hosting_provider'    => $profile['hosting_provider'] ?? 'generic',
+			'setup_file_relative' => Installer::setup_file_relative(),
+			'cursor_steps'        => array(
 				'1. Otwórz workspace public_html w Cursorze (SFTP/dysk).',
 				'2. Przeczytaj wp-content/inyfinn-cursor-bridge/cursor-setup.json (ten plik).',
 				'3. Zapisz env_file_content do public_html/.env (gitignored).',
@@ -322,7 +412,7 @@ final class Credentials {
 		}
 		$key = self::encryption_key();
 		if ( function_exists( 'openssl_encrypt' ) ) {
-			$iv = random_bytes( 16 );
+			$iv  = random_bytes( 16 );
 			$enc = openssl_encrypt( $plain, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv );
 			if ( false !== $enc ) {
 				return base64_encode( $iv . $enc );
@@ -353,5 +443,11 @@ final class Credentials {
 
 	private static function encryption_key(): string {
 		return hash( 'sha256', ( defined( 'AUTH_KEY' ) ? AUTH_KEY : 'inyfinn' ) . ( defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : 'bridge' ), true );
+	}
+
+	private static function load_application_passwords_class(): void {
+		if ( ! class_exists( '\WP_Application_Passwords' ) ) {
+			require_once ABSPATH . WPINC . '/class-wp-application-passwords.php';
+		}
 	}
 }

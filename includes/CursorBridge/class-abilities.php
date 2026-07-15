@@ -40,6 +40,7 @@ final class Abilities {
 		self::register_setup_guide();
 		self::register_configure_profile();
 		self::register_auto_setup_abilities();
+		self::register_health_abilities();
 		self::register_site_info();
 		self::register_list_plugins();
 		self::register_list_themes();
@@ -153,10 +154,12 @@ final class Abilities {
 						$provider = 'generic';
 					}
 
-					$profile = array(
-						'hosting_provider' => $provider,
-						'notes'            => sanitize_textarea_field( (string) ( $input['notes'] ?? '' ) ),
-					);
+					$profile = get_option( 'inyfinn_cursor_bridge_profile', array() );
+					if ( ! is_array( $profile ) ) {
+						$profile = array();
+					}
+					$profile['hosting_provider'] = $provider;
+					$profile['notes']            = sanitize_textarea_field( (string) ( $input['notes'] ?? '' ) );
 					update_option( 'inyfinn_cursor_bridge_profile', $profile, false );
 
 					return array(
@@ -164,6 +167,60 @@ final class Abilities {
 						'profile'     => $profile,
 						'setup_guide' => Site_Manifest::setup_guide(),
 					);
+				},
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta( false ),
+			)
+		);
+	}
+
+	private static function register_health_abilities(): void {
+		wp_register_ability(
+			'cursor-bridge/health-check',
+			array(
+				'label'               => 'Health Check',
+				'description'         => 'Full diagnostic: plugin, MCP, abilities, setup file. Use to verify installation.',
+				'category'            => 'cursor-bridge',
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static fn() => Health::run_checks(),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/repair',
+			array(
+				'label'               => 'Repair Component',
+				'description'         => 'Fix one component: activate_plugin, mu_plugin, app_password, setup_file, permalinks, conflicts, full_bootstrap.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'action'          => array(
+							'type' => 'string',
+							'enum' => array(
+								'activate_plugin',
+								'mu_plugin',
+								'app_password',
+								'setup_file',
+								'setup_directory',
+								'permalinks',
+								'conflicts',
+								'profile',
+								'full_bootstrap',
+							),
+						),
+						'rotate_password' => array( 'type' => 'boolean', 'default' => false ),
+					),
+					'required'   => array( 'action' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input  = is_array( $input ) ? $input : array();
+					$action = sanitize_key( (string) ( $input['action'] ?? '' ) );
+					$rotate = ! empty( $input['rotate_password'] );
+					return Health::repair( $action, $rotate );
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta( false ),
@@ -241,7 +298,7 @@ final class Abilities {
 					);
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
-				'meta'                => self::mcp_meta(),
+				'meta'                => self::mcp_meta( false ),
 			)
 		);
 
@@ -300,10 +357,13 @@ final class Abilities {
 				),
 				'output_schema'       => array( 'type' => 'object' ),
 				'execute_callback'    => static function ( $input = array() ) {
-					$input = is_array( $input ) ? $input : array();
-					$path  = sanitize_text_field( (string) ( $input['path'] ?? '' ) );
+					$input   = is_array( $input ) ? $input : array();
+					$path    = File_Reader::sanitize_relative_path( (string) ( $input['path'] ?? '' ) );
 					$content = (string) ( $input['content'] ?? '' );
 					$create  = ! empty( $input['create_dirs'] );
+					if ( '' === $path ) {
+						return array( 'error' => 'Invalid or empty path.' );
+					}
 					$result  = File_Reader::write_file( $path, $content, $create );
 					if ( is_wp_error( $result ) ) {
 						return array( 'error' => $result->get_error_message() );
@@ -459,7 +519,10 @@ final class Abilities {
 				'output_schema'       => array( 'type' => 'object' ),
 				'execute_callback'    => static function ( $input = array() ) {
 					$input = is_array( $input ) ? $input : array();
-					$path  = sanitize_text_field( (string) ( $input['path'] ?? '' ) );
+					$path  = File_Reader::sanitize_relative_path( (string) ( $input['path'] ?? '' ) );
+					if ( '' === $path ) {
+						return array( 'error' => 'Invalid or empty path.' );
+					}
 					$result = File_Reader::read_file( $path );
 					if ( is_wp_error( $result ) ) {
 						return array( 'error' => $result->get_error_message() );
@@ -487,7 +550,7 @@ final class Abilities {
 				'output_schema'       => array( 'type' => 'object' ),
 				'execute_callback'    => static function ( $input = array() ) {
 					$input = is_array( $input ) ? $input : array();
-					$path  = sanitize_text_field( (string) ( $input['path'] ?? '' ) );
+					$path  = File_Reader::sanitize_relative_path( (string) ( $input['path'] ?? '' ) );
 					$depth = (int) ( $input['depth'] ?? 2 );
 					$result = File_Reader::list_directory( $path, $depth );
 					if ( is_wp_error( $result ) ) {
