@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.3.0 — 2026-07-15
+
+### Added
+- **Hardening module**: SVG/media, unique upload filenames (date stamp), custom login `/logowanie`, safe wp-config block, PHP limits (`.user.ini` / `.htaccess`)
+- Always **backup** before file changes → `wp-content/inyfinn-cursor-bridge/backups/`
+- **Duplicate detection** (markers + signatures) — never paste twice; 5 message variants per case
+- Prefer **mu-plugin**; `functions.php` only with `allow_functions_php=true`
+- PHP lint + **automatic rollback** on syntax error
+- Admin UI section + MCP: `hardening-status`, `hardening-install`
+- Docs: `docs/HARDENING.md`
+
+### Security (rejected from user draft)
+- No `8000M` memory / upload limits
+- No `max_execution_time = 0`
+- No `WP_ALLOW_REPAIR`
+- No production `WP_DEBUG=true` by default
+- No guest `wp-admin` → 404 (soft login redirect instead)
+
 ## 1.2.0 — 2026-07-15
 
 ### Added

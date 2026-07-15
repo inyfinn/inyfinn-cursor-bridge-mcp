@@ -41,6 +41,7 @@ final class Abilities {
 		self::register_configure_profile();
 		self::register_auto_setup_abilities();
 		self::register_health_abilities();
+		self::register_hardening_abilities();
 		self::register_site_info();
 		self::register_list_plugins();
 		self::register_list_themes();
@@ -221,6 +222,59 @@ final class Abilities {
 					$action = sanitize_key( (string) ( $input['action'] ?? '' ) );
 					$rotate = ! empty( $input['rotate_password'] );
 					return Health::repair( $action, $rotate );
+				},
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta( false ),
+			)
+		);
+	}
+
+	private static function register_hardening_abilities(): void {
+		wp_register_ability(
+			'cursor-bridge/hardening-status',
+			array(
+				'label'               => 'Hardening Status',
+				'description'         => 'Status SVG, unique uploads, custom login, wp-config, PHP limits. Detects duplicates.',
+				'category'            => 'cursor-bridge',
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static fn() => Hardening::status(),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/hardening-install',
+			array(
+				'label'               => 'Install Hardening Feature',
+				'description'         => 'Install one feature with backup + duplicate detection. Features: svg-media, unique-uploads, custom-login, wp-config, php-limits, or all.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'feature'              => array(
+							'type' => 'string',
+							'enum' => array( 'svg-media', 'unique-uploads', 'custom-login', 'wp-config', 'php-limits', 'all' ),
+						),
+						'dry_run'              => array( 'type' => 'boolean', 'default' => false ),
+						'force'                => array( 'type' => 'boolean', 'default' => false ),
+						'allow_functions_php'  => array( 'type' => 'boolean', 'default' => false ),
+					),
+					'required'   => array( 'feature' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input    = is_array( $input ) ? $input : array();
+					$feature  = sanitize_key( (string) ( $input['feature'] ?? '' ) );
+					$opts     = array(
+						'dry_run'             => ! empty( $input['dry_run'] ),
+						'force'               => ! empty( $input['force'] ),
+						'allow_functions_php' => ! empty( $input['allow_functions_php'] ),
+					);
+					if ( 'all' === $feature ) {
+						return Hardening::install_all( $opts );
+					}
+					return Hardening::install( $feature, $opts );
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta( false ),

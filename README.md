@@ -1,7 +1,7 @@
 # Inyfinn Cursor Bridge MCP
 
 **Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp  
-**Wersja:** 1.2.0  
+**Wersja:** 1.3.0  
 **Licencja:** GPL-2.0-or-later
 
 Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).
@@ -20,6 +20,7 @@ Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z w
 | Bundle `.env` + `mcp.json` | DB z `wp-config`, MCP endpoint, brakujące pola SSH |
 | 19 abilities MCP | Ping, manifest, pliki, WooCommerce, health-check, repair |
 | Panel diagnostyczny | **Ustawienia → Cursor Bridge** — testy + przyciski Napraw |
+| Hardening | SVG, unikalne nazwy uploadów, `/logowanie`, limity PHP — z backupem i ochroną przed duplikatami |
 
 ---
 
@@ -170,6 +171,7 @@ Pełna lista: [docs/ABILITIES.md](docs/ABILITIES.md)
 
 | Plik | Zawartość |
 |------|-----------|
+| `docs/HARDENING.md` | SVG, uploady, login, limity — zasady bezpieczeństwa |
 | [docs/INSTALLATION.md](docs/INSTALLATION.md) | Instalacja krok po kroku |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Rozwiązywanie problemów |
 | [docs/ABILITIES.md](docs/ABILITIES.md) | Reference abilities |
