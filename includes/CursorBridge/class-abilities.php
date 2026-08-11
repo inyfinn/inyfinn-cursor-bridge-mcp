@@ -14,6 +14,42 @@ final class Abilities {
 	public static function register_hooks(): void {
 		add_action( 'wp_abilities_api_categories_init', array( __CLASS__, 'register_category' ) );
 		add_action( 'wp_abilities_api_init', array( __CLASS__, 'register_abilities' ), 5 );
+		add_action( 'rest_api_init', array( __CLASS__, 'register_rest_routes' ) );
+	}
+
+	public static function register_rest_routes(): void {
+		register_rest_route(
+			'cursor-bridge/v1',
+			'/ping',
+			array(
+				'methods'             => 'GET',
+				'permission_callback' => static fn() => current_user_can( 'read' ),
+				'callback'            => static function (): array {
+					return array(
+						'ok'             => true,
+						'bridge_version' => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : 'unknown',
+					);
+				},
+			)
+		);
+
+		register_rest_route(
+			'cursor-bridge/v1',
+			'/db-query',
+			array(
+				'methods'             => 'POST',
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'callback'            => static function ( \WP_REST_Request $request ): array {
+					return Db_Query::run( (string) $request->get_param( 'sql' ) );
+				},
+				'args'                => array(
+					'sql' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
 	}
 
 	public static function register_category(): void {
@@ -48,6 +84,7 @@ final class Abilities {
 		self::register_list_posts();
 		self::register_flush_caches();
 		self::register_file_abilities();
+		self::register_db_query();
 		self::register_woocommerce_abilities();
 	}
 
@@ -703,6 +740,34 @@ final class Abilities {
 					return $result;
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_woocommerce' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+	}
+
+	private static function register_db_query(): void {
+		wp_register_ability(
+			'cursor-bridge/db-query',
+			array(
+				'label'               => 'Read-only DB Query',
+				'description'         => 'Run SELECT/SHOW/DESCRIBE/EXPLAIN on server MySQL via wpdb (no remote DB host needed).',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'sql' => array(
+							'type'        => 'string',
+							'description' => 'Read-only SQL statement.',
+						),
+					),
+					'required'   => array( 'sql' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Db_Query::run( (string) ( $input['sql'] ?? '' ) );
+				},
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta(),
 			)
 		);

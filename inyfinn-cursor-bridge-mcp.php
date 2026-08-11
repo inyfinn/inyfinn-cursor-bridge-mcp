@@ -13,7 +13,7 @@
  * Plugin URI:        https://inyfinn.pl
  * Description:       MCP Adapter + Cursor abilities (SSH/WP-CLI setup guides, site manifest, WooCommerce). Uruchamiane z Cursor IDE przez @automattic/mcp-wordpress-remote.
  * Requires at least: 6.8
- * Version:           1.3.5
+ * Version:           1.3.6
  * Requires PHP:      7.4
  * Author:            Inyfinn
  * License:           GPLv2 or later
@@ -41,10 +41,10 @@ function inyfinn_cursor_bridge_mcp_constants(): void {
 		define( 'WP_MCP_DIR', plugin_dir_path( __FILE__ ) );
 	}
 	if ( ! defined( 'WP_MCP_VERSION' ) ) {
-		define( 'WP_MCP_VERSION', '1.3.5' );
+		define( 'WP_MCP_VERSION', '1.3.6' );
 	}
 	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ) {
-		define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.3.5' );
+		define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.3.6' );
 	}
 	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_FILE' ) ) {
 		define( 'INYFINN_CURSOR_BRIDGE_MCP_FILE', __FILE__ );
@@ -53,10 +53,10 @@ function inyfinn_cursor_bridge_mcp_constants(): void {
 		define( 'INYFINN_CURSOR_BRIDGE_MCP_DIR', plugin_dir_path( __FILE__ ) );
 	}
 	if ( ! defined( 'WORDPRESS_MCP_ADAPTER_VERSION' ) ) {
-		define( 'WORDPRESS_MCP_ADAPTER_VERSION', '1.3.5' );
+		define( 'WORDPRESS_MCP_ADAPTER_VERSION', '1.3.6' );
 	}
 	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_VERSION' ) ) {
-		define( 'INYFINN_CURSOR_BRIDGE_VERSION', '1.3.5' );
+		define( 'INYFINN_CURSOR_BRIDGE_VERSION', '1.3.6' );
 	}
 	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_DIR' ) ) {
 		define( 'INYFINN_CURSOR_BRIDGE_DIR', plugin_dir_path( __FILE__ ) );
@@ -84,6 +84,7 @@ require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-harden
 require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-hardening.php';
 require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-site-manifest.php';
 require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-file-reader.php';
+require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-db-query.php';
 require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-admin-page.php';
 require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-abilities.php';
 require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-bootstrap.php';

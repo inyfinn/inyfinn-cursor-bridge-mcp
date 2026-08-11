@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.6 — 2026-08-11
+
+### Added
+- **`cursor-bridge/db-query`** — read-only SQL przez `wpdb` na serwerze (bez zdalnego MySQL)
+- REST: `GET /wp-json/cursor-bridge/v1/ping`, `POST /wp-json/cursor-bridge/v1/db-query`
+
 ## 1.3.5 — 2026-08-11
 
 ### Fixed
