@@ -1,40 +1,39 @@
 # Inyfinn Cursor Bridge MCP — instrukcja dla Cursor Agent
 
-## Model dostępu (zawsze przez jeden MCP WordPress)
+## Jak user sprawdza, że masz dostęp do bazy?
 
-| Warstwa | Jak | Ability MCP |
-|---------|-----|-------------|
-| **WordPress** | MCP remote | `cursor-bridge/ping`, `health-check`, `list-plugins`, … |
-| **Baza danych** | wpdb na serwerze (jak BSR) | `cursor-bridge/db-query`, `db-list-tables`, `db-info` |
-| **Pliki** | SFTP workspace LUB MCP | `read/write-wp-content-file`, `list-wp-content-dir` |
-| **SSH** | Opcjonalny terminal | tylko WP-CLI — nie wymagany |
+1. **Panel WP:** Ustawienia → Cursor Bridge → „Test połączenia” — wszystkie ✓
+2. **MCP:** `cursor-bridge/verify-connection` → `ok:true`, `layers.database:true`
+3. **REST:** `GET /wp-json/cursor-bridge/v1/verify-connection` (Basic auth)
 
-**NIE używaj** zdalnego `mariadb` MCP do produkcyjnej bazy — hosting blokuje port 3306 z zewnątrz.
-WordPress i ta wtyczka używają **tej samej bazy** przez PHP na serwerze.
+Baza = `cursor-bridge/db-query` (wpdb na serwerze). **NIE** zdalny mariadb MCP.
+
+## Co było potrzebne na start projektu
+
+1. Wtyczka aktywna na serwerze
+2. Application Password dla usera MCP (np. inyfinn)
+3. Jeden serwer MCP w `~/.cursor/mcp.json` → `kubara.pl` endpoint
+4. Workspace SFTP `public_html` (opcjonalnie — pliki też przez MCP)
+5. **NIE** zdalny MySQL — SEOHost blokuje port 3306 z zewnątrz
+
+## Dlaczego były problemy na początku
+
+| Problem | Fix w wtyczce |
+|---------|----------------|
+| Zły URL (srv112808 vs kubara.pl) | Bundle używa `home_url()` |
+| Brak hasła w wtyczce | Pole w panelu + `store_application_password` |
+| App Passwords „wyłączone” | Force enable na HTTPS/proxy |
+| wp_die przy zapisie | Nonce bez wp_die |
+| „Brak bazy” | db-query przez wpdb, nie remote MySQL |
 
 ## Polecenie użytkownika
 
-Gdy user pisze: **„uruchom wtyczkę inyfinn-cursor-bridge-mcp”**:
-
-1. Przeczytaj `wp-content/inyfinn-cursor-bridge/cursor-setup.json`
-2. Zapisz `.env` i scal **jeden** serwer MCP do `~/.cursor/mcp.json`
-3. Test: `cursor-bridge/ping` → `cursor-bridge/db-query` z `SELECT 1`
-4. Test plików: `cursor-bridge/list-wp-content-dir` lub workspace SFTP
+**„uruchom wtyczkę inyfinn-cursor-bridge-mcp”** → setup.json → mcp.json → test `verify-connection`
 
 ## Weryfikacja
 
 | Test | Oczekiwany wynik |
 |------|------------------|
-| `cursor-bridge/ping` | `ok: true` |
-| `cursor-bridge/db-query` | `ok: true`, `access_method: wpdb on server` |
-| `cursor-bridge/health-check` | `healthy: true`, wiersz „Baza danych” = OK |
-| discover-abilities | ≥22 × `cursor-bridge/*` |
-
-## REST fallback (bez pełnego MCP)
-
-- `GET /wp-json/cursor-bridge/v1/ping`
-- `GET /wp-json/cursor-bridge/v1/db-info`
-- `GET /wp-json/cursor-bridge/v1/db-tables`
-- `POST /wp-json/cursor-bridge/v1/db-query` + `{"sql":"SELECT 1"}`
-
-Auth: Application Password (Basic).
+| `cursor-bridge/verify-connection` | `ok: true`, wszystkie `layers` = true |
+| `cursor-bridge/db-query` | `access_method: wpdb on server` |
+| Panel: Test połączenia | 5× ✓ OK |

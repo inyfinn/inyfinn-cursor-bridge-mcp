@@ -324,7 +324,8 @@ final class Installer {
 				'plugin'       => 'inyfinn-cursor-bridge-mcp',
 				'version'      => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.1.1',
 				'generated_at' => gmdate( 'c' ),
-				'cursor_task'  => 'Przeczytaj ten plik z workspace (SFTP). Uzupełnij ~/.cursor/mcp.json i .env w public_html. Wywołaj cursor-bridge/run-auto-setup przez MCP. Usuń ten plik po sukcesie.',
+				'verify_connection' => Connection_Verify::run(),
+				'cursor_task'  => 'Przeczytaj ten plik z workspace (SFTP). Uzupełnij ~/.cursor/mcp.json i .env w public_html. Wywołaj cursor-bridge/verify-connection. Usuń ten plik po sukcesie.',
 			)
 		);
 

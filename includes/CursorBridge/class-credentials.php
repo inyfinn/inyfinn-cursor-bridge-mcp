@@ -804,6 +804,7 @@ final class Credentials {
 				'wordpress' => 'MCP cursor-bridge/* przez @automattic/mcp-wordpress-remote',
 				'database'  => 'MCP cursor-bridge/db-query — wpdb on server (same as BSR)',
 				'files'     => 'SFTP workspace OR MCP read/write-wp-content-file',
+				'verify'    => 'cursor-bridge/verify-connection — jeden test WP+DB+pliki',
 				'not_needed'=> 'Remote mariadb MCP — hosting blocks external port 3306',
 			),
 		);

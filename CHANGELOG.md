@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.1 — 2026-08-11
+
+### Fixed
+- **Krytyki:** naprawiony REST `/ping` (błędna rejestracja route → 500 na całym REST)
+
+## 1.5.0 — 2026-08-11
+
+### Added
+- **`cursor-bridge/verify-connection`** — jeden test: WordPress + baza (wpdb) + pliki + MCP + hasło
+- Panel WP: sekcja „Test połączenia” z wynikami na żywo
+- REST `GET /cursor-bridge/v1/verify-connection`
+- `docs/VERIFY.md` — jak sprawdzić dostęp i historia problemów startowych
+
 ## 1.4.0 — 2026-08-11
 
 ### Philosophy

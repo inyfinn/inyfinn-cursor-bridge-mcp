@@ -270,6 +270,7 @@ final class Admin_Page {
 		$health        = Health::run_checks();
 		$hardening     = Hardening::status();
 		$page_url      = self::admin_page_url();
+		$verify        = Connection_Verify::run();
 
 		settings_errors( 'inyfinn_cursor_bridge' );
 		?>
@@ -286,6 +287,31 @@ final class Admin_Page {
 			</p>
 
 			<?php self::render_health_banner( $health ); ?>
+
+			<h2><?php esc_html_e( 'Test połączenia (WordPress + baza + pliki)', 'inyfinn-cursor-bridge-mcp' ); ?></h2>
+			<div class="card" style="max-width:960px;padding:1em 1.2em;margin-bottom:1.5em">
+				<p>
+					<strong><?php echo $verify['ok'] ? '✓' : '✗'; ?></strong>
+					<?php echo esc_html( $verify['ok'] ? __( 'Cursor może mieć pełny dostęp — wszystkie warstwy OK.', 'inyfinn-cursor-bridge-mcp' ) : __( 'Brakuje konfiguracji — patrz tabela poniżej.', 'inyfinn-cursor-bridge-mcp' ) ); ?>
+				</p>
+				<table class="widefat striped">
+					<thead><tr><th>Warstwa</th><th>Status</th><th>Szczegóły</th></tr></thead>
+					<tbody>
+						<?php foreach ( (array) ( $verify['checks'] ?? array() ) as $key => $row ) : ?>
+							<tr>
+								<td><strong><?php echo esc_html( (string) ( $row['label'] ?? $key ) ); ?></strong></td>
+								<td><?php self::render_status_badge( ! empty( $row['ok'] ) ? 'ok' : 'error' ); ?></td>
+								<td><code style="word-break:break-all"><?php echo esc_html( (string) ( $row['message'] ?? '' ) ); ?></code></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				<p class="description" style="margin-top:1em">
+					<?php esc_html_e( 'W Cursorze: wywołaj cursor-bridge/verify-connection lub otwórz REST:', 'inyfinn-cursor-bridge-mcp' ); ?>
+					<code><?php echo esc_html( (string) ( $verify['rest_verify_urls']['verify'] ?? '' ) ); ?></code>
+				</p>
+				<p class="description"><?php echo esc_html( (string) ( $verify['why_not_remote_mysql'] ?? '' ) ); ?></p>
+			</div>
 
 			<h2><?php esc_html_e( 'Diagnostyka MCP', 'inyfinn-cursor-bridge-mcp' ); ?></h2>
 			<table class="widefat striped" style="max-width:960px">

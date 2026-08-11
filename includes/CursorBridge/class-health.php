@@ -349,13 +349,13 @@ final class Health {
 			}
 		}
 
-		$ok = $count >= 22 && $ping;
+		$ok = $count >= 23 && $ping;
 
 		return array(
 			'id'            => 'abilities',
 			'label'         => 'Abilities cursor-bridge/*',
 			'status'        => $ok ? 'ok' : 'error',
-			'message'       => $ok ? $count . ' abilities (w tym ping)' : 'Znaleziono ' . $count . ' — oczekiwano ≥22',
+			'message'       => $ok ? $count . ' abilities (w tym ping)' : 'Znaleziono ' . $count . ' — oczekiwano ≥23',
 			'repair_action' => $ok ? null : 'full_bootstrap',
 		);
 	}

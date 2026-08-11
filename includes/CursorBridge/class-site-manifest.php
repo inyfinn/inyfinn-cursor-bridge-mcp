@@ -77,6 +77,7 @@ final class Site_Manifest {
 				'cursor_prompt'       => 'uruchom wtyczkę inyfinn-cursor-bridge-mcp',
 				'first_ability'       => 'cursor-bridge/get-cursor-bundle',
 			),
+			'verify_connection' => Connection_Verify::run(),
 			'timestamp'          => gmdate( 'c' ),
 		);
 	}

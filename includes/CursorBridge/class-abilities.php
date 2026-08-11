@@ -20,6 +20,16 @@ final class Abilities {
 	public static function register_rest_routes(): void {
 		register_rest_route(
 			'cursor-bridge/v1',
+			'/verify-connection',
+			array(
+				'methods'             => 'GET',
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'callback'            => static fn() => Connection_Verify::run(),
+			)
+		);
+
+		register_rest_route(
+			'cursor-bridge/v1',
 			'/ping',
 			array(
 				'methods'             => 'GET',
@@ -92,6 +102,7 @@ final class Abilities {
 		}
 
 		self::register_ping();
+		self::register_verify_connection();
 		self::register_site_manifest();
 		self::register_setup_guide();
 		self::register_configure_profile();
@@ -150,6 +161,21 @@ final class Abilities {
 					);
 				},
 				'permission_callback' => static fn() => current_user_can( 'read' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+	}
+
+	private static function register_verify_connection(): void {
+		wp_register_ability(
+			'cursor-bridge/verify-connection',
+			array(
+				'label'               => 'Verify Connection (WP + DB + Files)',
+				'description'         => 'Live test: WordPress, wpdb database, wp-content files, MCP endpoint, credentials. Use this to confirm Cursor has full access.',
+				'category'            => 'cursor-bridge',
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static fn() => Connection_Verify::run(),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta(),
 			)
 		);
