@@ -791,14 +791,20 @@ final class Credentials {
 			'hosting_provider'    => $profile['hosting_provider'] ?? 'generic',
 			'setup_file_relative' => Installer::setup_file_relative(),
 			'cursor_steps'        => array(
-				'1. Otwórz workspace public_html w Cursorze (SFTP/dysk).',
-				'2. Przeczytaj wp-content/inyfinn-cursor-bridge/cursor-setup.json (ten plik).',
-				'3. Zapisz env_file_content do public_html/.env (gitignored).',
-				'4. Scal mcp_json do ~/.cursor/mcp.json.',
-				'5. Uzupełnij missing_fields (SSH, WORKSPACE_PUBLIC_HTML) — zapytaj użytkownika tylko o te.',
-				'6. Wywołaj MCP: cursor-bridge/ping, potem cursor-bridge/get-site-manifest.',
-				'7. Edycja plików: workspace SFTP LUB cursor-bridge/write-wp-content-file przez MCP.',
+				'1. Jeden serwer MCP (wordpress-remote) = WordPress + baza + pliki wp-content.',
+				'2. Baza: cursor-bridge/db-query (wpdb na serwerze — NIE zdalny mariadb MCP).',
+				'3. Pliki: workspace SFTP LUB cursor-bridge/read/write-wp-content-file.',
+				'4. Zapisz env_file_content do public_html/.env (gitignored).',
+				'5. Scal mcp_json do ~/.cursor/mcp.json — tylko jeden serwer WordPress.',
+				'6. SSH opcjonalny — tylko dla WP-CLI w terminalu.',
+				'7. Test: cursor-bridge/ping, cursor-bridge/db-query, cursor-bridge/health-check.',
 				'8. Usuń cursor-setup.json po pierwszym udanym połączeniu.',
+			),
+			'access_model'        => array(
+				'wordpress' => 'MCP cursor-bridge/* przez @automattic/mcp-wordpress-remote',
+				'database'  => 'MCP cursor-bridge/db-query — wpdb on server (same as BSR)',
+				'files'     => 'SFTP workspace OR MCP read/write-wp-content-file',
+				'not_needed'=> 'Remote mariadb MCP — hosting blocks external port 3306',
 			),
 		);
 	}

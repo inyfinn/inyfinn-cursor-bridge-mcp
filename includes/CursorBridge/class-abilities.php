@@ -35,6 +35,26 @@ final class Abilities {
 
 		register_rest_route(
 			'cursor-bridge/v1',
+			'/db-info',
+			array(
+				'methods'             => 'GET',
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'callback'            => static fn() => Db_Query::info(),
+			)
+		);
+
+		register_rest_route(
+			'cursor-bridge/v1',
+			'/db-tables',
+			array(
+				'methods'             => 'GET',
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'callback'            => static fn() => Db_Query::list_tables(),
+			)
+		);
+
+		register_rest_route(
+			'cursor-bridge/v1',
 			'/db-query',
 			array(
 				'methods'             => 'POST',
@@ -84,7 +104,7 @@ final class Abilities {
 		self::register_list_posts();
 		self::register_flush_caches();
 		self::register_file_abilities();
-		self::register_db_query();
+		self::register_db_abilities();
 		self::register_woocommerce_abilities();
 	}
 
@@ -745,12 +765,61 @@ final class Abilities {
 		);
 	}
 
-	private static function register_db_query(): void {
+	private static function register_db_abilities(): void {
+		wp_register_ability(
+			'cursor-bridge/db-info',
+			array(
+				'label'               => 'Database Info',
+				'description'         => 'DB name, prefix, host — access via wpdb on server (no remote MySQL).',
+				'category'            => 'cursor-bridge',
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static fn() => Db_Query::info(),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/db-list-tables',
+			array(
+				'label'               => 'List Database Tables',
+				'description'         => 'SHOW TABLES via wpdb — same DB access as WordPress CMS.',
+				'category'            => 'cursor-bridge',
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static fn() => Db_Query::list_tables(),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/db-describe-table',
+			array(
+				'label'               => 'Describe Database Table',
+				'description'         => 'Column schema for one table.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'table' => array( 'type' => 'string' ),
+					),
+					'required'   => array( 'table' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Db_Query::describe_table( (string) ( $input['table'] ?? '' ) );
+				},
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
 		wp_register_ability(
 			'cursor-bridge/db-query',
 			array(
 				'label'               => 'Read-only DB Query',
-				'description'         => 'Run SELECT/SHOW/DESCRIBE/EXPLAIN on server MySQL via wpdb (no remote DB host needed).',
+				'description'         => 'SELECT/SHOW/DESCRIBE/EXPLAIN via wpdb on server (like Better Search Replace DB access).',
 				'category'            => 'cursor-bridge',
 				'input_schema'        => array(
 					'type'       => 'object',

@@ -1,63 +1,40 @@
 # Inyfinn Cursor Bridge MCP — instrukcja dla Cursor Agent
 
+## Model dostępu (zawsze przez jeden MCP WordPress)
+
+| Warstwa | Jak | Ability MCP |
+|---------|-----|-------------|
+| **WordPress** | MCP remote | `cursor-bridge/ping`, `health-check`, `list-plugins`, … |
+| **Baza danych** | wpdb na serwerze (jak BSR) | `cursor-bridge/db-query`, `db-list-tables`, `db-info` |
+| **Pliki** | SFTP workspace LUB MCP | `read/write-wp-content-file`, `list-wp-content-dir` |
+| **SSH** | Opcjonalny terminal | tylko WP-CLI — nie wymagany |
+
+**NIE używaj** zdalnego `mariadb` MCP do produkcyjnej bazy — hosting blokuje port 3306 z zewnątrz.
+WordPress i ta wtyczka używają **tej samej bazy** przez PHP na serwerze.
+
 ## Polecenie użytkownika
 
-Gdy user pisze: **„uruchom wtyczkę inyfinn-cursor-bridge-mcp”** — wykonaj workflow:
+Gdy user pisze: **„uruchom wtyczkę inyfinn-cursor-bridge-mcp”**:
 
-### Krok 0 — sprawdź zdrowie (jeśli MCP już działa)
+1. Przeczytaj `wp-content/inyfinn-cursor-bridge/cursor-setup.json`
+2. Zapisz `.env` i scal **jeden** serwer MCP do `~/.cursor/mcp.json`
+3. Test: `cursor-bridge/ping` → `cursor-bridge/db-query` z `SELECT 1`
+4. Test plików: `cursor-bridge/list-wp-content-dir` lub workspace SFTP
 
-```
-cursor-bridge/health-check
-```
-
-Jeśli `healthy: false` → `cursor-bridge/repair` z odpowiednim `action` lub `full_bootstrap`.
-
-### Krok A — bez MCP (workspace SFTP)
-
-1. Przeczytaj `wp-content/inyfinn-cursor-bridge/cursor-setup.json` z workspace `public_html`
-2. Z pliku weź: `env_file_content`, `mcp_json_content`, `missing_fields`
-3. Zapisz `.env` w root workspace (`public_html/.env`) — **gitignore**
-4. Scal `mcp_json` do `~/.cursor/mcp.json`
-5. Zapytaj usera **tylko** o pola z `missing_fields`
-6. Po połączeniu MCP: `cursor-bridge/update-connection-settings`
-
-### Krok B — przez MCP
-
-1. `cursor-bridge/run-auto-setup` (`rotate_password: false`)
-2. `cursor-bridge/health-check` → `healthy: true`
-3. `cursor-bridge/get-cursor-bundle` (`include_secrets: true`) — tylko jeśli potrzeba sekretów
-4. `cursor-bridge/ping` → `bridge_version` zgodny z panelem WP
-5. `cursor-bridge/get-site-manifest`
-6. Opcjonalnie usuń `cursor-setup.json` po sukcesie
-
-## Weryfikacja — co wpisać żeby wiedzieć że działa
+## Weryfikacja
 
 | Test | Oczekiwany wynik |
 |------|------------------|
-| Panel WP: Ustawienia → Cursor Bridge | Zielony baner, 12× OK |
 | `cursor-bridge/ping` | `ok: true` |
-| `cursor-bridge/health-check` | `healthy: true`, `failed_count: 0` |
-| discover-abilities | ≥19 × `cursor-bridge/*` |
+| `cursor-bridge/db-query` | `ok: true`, `access_method: wpdb on server` |
+| `cursor-bridge/health-check` | `healthy: true`, wiersz „Baza danych” = OK |
+| discover-abilities | ≥22 × `cursor-bridge/*` |
 
-## Naprawa z panelu WP
+## REST fallback (bez pełnego MCP)
 
-**Ustawienia → Cursor Bridge** — tabela diagnostyka z przyciskami **Napraw**.
+- `GET /wp-json/cursor-bridge/v1/ping`
+- `GET /wp-json/cursor-bridge/v1/db-info`
+- `GET /wp-json/cursor-bridge/v1/db-tables`
+- `POST /wp-json/cursor-bridge/v1/db-query` + `{"sql":"SELECT 1"}`
 
-Przez MCP: `cursor-bridge/repair` z `action`: `mu_plugin`, `app_password`, `setup_file`, `permalinks`, `conflicts`, `full_bootstrap`.
-
-## Edycja plików
-
-| Metoda | Kiedy |
-|--------|-------|
-| Workspace SFTP | Preferowane |
-| `write-wp-content-file` | Brak SFTP |
-| `read-wp-content-file` | Odczyt max 512 KB |
-
-**Nie czytaj** `inyfinn-cursor-bridge/cursor-setup.json` przez MCP — zablokowane. Użyj `get-cursor-bundle` lub SFTP.
-
-## Dokumentacja
-
-- `README.md` — przegląd
-- `docs/INSTALLATION.md` — nowa instalacja
-- `docs/TROUBLESHOOTING.md` — problemy
-- `docs/ABILITIES.md` — API reference
+Auth: Application Password (Basic).

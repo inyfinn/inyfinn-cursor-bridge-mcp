@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0 — 2026-08-11
+
+### Philosophy
+- **Jeden MCP WordPress** = CMS + baza (wpdb) + pliki wp-content — bez zdalnego mariadb MCP
+- Baza jak Better Search Replace: PHP/wpdb na serwerze, nie port 3306 z zewnątrz
+
+### Added
+- `cursor-bridge/db-info`, `db-list-tables`, `db-describe-table`
+- Diagnostyka: wiersz „Baza danych (wpdb na serwerze)”
+- REST: `/db-info`, `/db-tables`
+- `access_model` w cursor-setup.json i zaktualizowany AGENTS.md
+
 ## 1.3.6 — 2026-08-11
 
 ### Added

@@ -27,6 +27,7 @@ final class Health {
 			self::check_mcp_adapter(),
 			self::check_abilities_registered(),
 			self::check_conflicting_plugins(),
+			self::check_db_access(),
 			self::check_mcp_rest_route(),
 		);
 
@@ -348,13 +349,13 @@ final class Health {
 			}
 		}
 
-		$ok = $count >= 19 && $ping;
+		$ok = $count >= 22 && $ping;
 
 		return array(
 			'id'            => 'abilities',
 			'label'         => 'Abilities cursor-bridge/*',
 			'status'        => $ok ? 'ok' : 'error',
-			'message'       => $ok ? $count . ' abilities (w tym ping)' : 'Znaleziono ' . $count . ' — oczekiwano ≥19',
+			'message'       => $ok ? $count . ' abilities (w tym ping)' : 'Znaleziono ' . $count . ' — oczekiwano ≥22',
 			'repair_action' => $ok ? null : 'full_bootstrap',
 		);
 	}
@@ -386,6 +387,24 @@ final class Health {
 			'status'        => $ok ? 'ok' : 'warning',
 			'message'       => $ok ? 'Brak duplikatu' : 'Aktywny: ' . implode( ', ', $active ),
 			'repair_action' => $ok ? null : 'conflicts',
+		);
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function check_db_access(): array {
+		$result = Db_Query::ping();
+		$ok     = ! empty( $result['ok'] );
+
+		return array(
+			'id'            => 'db_access',
+			'label'         => 'Baza danych (wpdb na serwerze)',
+			'status'        => $ok ? 'ok' : 'error',
+			'message'       => $ok
+				? 'Dostęp przez wpdb — bez zdalnego MySQL (jak WordPress CMS)'
+				: (string) ( $result['message'] ?? 'Brak dostępu do bazy' ),
+			'repair_action' => $ok ? null : 'full_bootstrap',
 		);
 	}
 

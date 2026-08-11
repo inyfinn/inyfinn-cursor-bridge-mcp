@@ -60,12 +60,13 @@ final class Site_Manifest {
 			),
 			'public_abilities'     => $public,
 			'cursor_layers'        => array(
-				'files'     => 'Cursor workspace (SFTP/dysk) — edycja PHP/CSS/JS',
-				'mcp'       => '@automattic/mcp-wordpress-remote → Inyfinn Cursor Bridge MCP → abilities',
-				'ssh_wpcli' => 'Terminal Cursor + .env (SSH_*, WP_CLI_COMMAND) — batch, cache, DB',
-				'not_mcp'   => array(
-					'mariadb'         => 'Lokalna baza MySQL — NIE zdalny produkcyjny WordPress',
-					'wordpress-local' => 'Osobny pakiet dla Local WP — nie zastępuje MCP Adapter',
+				'wordpress' => 'MCP → cursor-bridge/* abilities (ping, manifest, plugins, repair)',
+				'database'  => 'MCP → cursor-bridge/db-query, db-list-tables (wpdb on server — jak Better Search Replace)',
+				'files'     => 'SFTP workspace LUB MCP read/write-wp-content-file',
+				'ssh'       => 'Opcjonalny — WP-CLI w terminalu gdy skonfigurujesz SSH',
+				'never_needed' => array(
+					'remote_mariadb_mcp' => 'Nie potrzebny — hosting blokuje port 3306 z zewnątrz; wtyczka używa wpdb',
+					'wordpress-local'    => 'Tylko Local WP na komputerze dewelopera',
 				),
 			),
 			'env_file_location'  => 'Plik .env w katalogu public_html na maszynie deweloperskiej (Cursor). Wtyczka WP nie czyta .env — tylko Cursor.',
