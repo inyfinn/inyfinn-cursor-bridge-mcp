@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.3 — 2026-08-11
+
+### Fixed
+- Aktywacja wtyczki: pomijanie `handle_actions()` podczas `activate` (unikanie fatalów na `plugins.php`)
+- Potwierdzone fixy z logu: `is_our_admin_request()`, poprawne `register_rest_route()` dla `/ping`
+
 ## 1.5.2 — 2026-08-11
 
 ### Added

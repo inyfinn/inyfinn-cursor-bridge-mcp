@@ -42,7 +42,16 @@ final class Admin_Page {
 	}
 
 	public static function handle_actions(): void {
-		if ( ! current_user_can( 'manage_options' ) || ! self::is_our_admin_request() ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		// Nie uruchamiaj logiki panelu podczas aktywacji wtyczki (admin_init na activate-plugins.php).
+		if ( isset( $_GET['action'] ) && 'activate' === sanitize_key( wp_unslash( $_GET['action'] ) ) && isset( $_GET['plugin'] ) ) {
+			return;
+		}
+
+		if ( ! self::is_our_admin_request() ) {
 			return;
 		}
 
