@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.4 — 2026-08-11
+
+### Fixed
+- **Krytyczny błąd aktywacji:** duplikat folderu `inyfinn-cursor-bridge-mcp-*.off` → `Cannot redeclare function`
+- MU-loader: tylko kanoniczna ścieżka (bez `glob` na wszystkie kopie)
+- `function_exists()` guard na `inyfinn_cursor_bridge_mcp_constants()`
+- Auto-usuwanie starych kopii wtyczki przy bootstrapie
+
 ## 1.5.3 — 2026-08-11
 
 ### Fixed

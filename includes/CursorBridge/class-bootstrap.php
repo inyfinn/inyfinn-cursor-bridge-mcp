@@ -12,10 +12,13 @@ defined( 'ABSPATH' ) || exit;
 final class Bootstrap {
 
 	public static function init(): void {
+		Credentials::register_application_password_filters();
+
 		register_activation_hook( INYFINN_CURSOR_BRIDGE_MCP_FILE, array( __CLASS__, 'on_activate' ) );
 		add_action( 'plugins_loaded', array( __CLASS__, 'on_plugins_loaded' ), 25 );
 
 		Installer::init();
+		Installer::cleanup_duplicate_installations();
 		Admin_Page::init();
 		Abilities::register_hooks();
 	}
@@ -27,6 +30,8 @@ final class Bootstrap {
 	}
 
 	public static function on_plugins_loaded(): void {
+		Credentials::maybe_consume_manual_pass_file();
+
 		if ( class_exists( 'WooCommerce' ) && 'yes' !== get_option( 'woocommerce_feature_mcp_integration_enabled', 'no' ) ) {
 			update_option( 'woocommerce_feature_mcp_integration_enabled', 'yes', false );
 		}

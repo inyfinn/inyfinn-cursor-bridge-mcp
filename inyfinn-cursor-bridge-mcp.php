@@ -13,7 +13,7 @@
  * Plugin URI:        https://inyfinn.pl
  * Description:       MCP Adapter + Cursor abilities (SSH/WP-CLI setup guides, site manifest, WooCommerce). Uruchamiane z Cursor IDE przez @automattic/mcp-wordpress-remote.
  * Requires at least: 6.8
- * Version:           1.5.3
+ * Version:           1.5.4
  * Requires PHP:      7.4
  * Author:            Inyfinn
  * License:           GPLv2 or later
@@ -36,33 +36,35 @@ define( 'INYFINN_CURSOR_BRIDGE_MCP_LOADED', true );
 /**
  * Plugin constants.
  */
-function inyfinn_cursor_bridge_mcp_constants(): void {
-	if ( ! defined( 'WP_MCP_DIR' ) ) {
-		define( 'WP_MCP_DIR', plugin_dir_path( __FILE__ ) );
-	}
-	if ( ! defined( 'WP_MCP_VERSION' ) ) {
-		define( 'WP_MCP_VERSION', '1.5.3' );
-	}
-	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ) {
-		define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.5.3' );
-	}
-	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_FILE' ) ) {
-		define( 'INYFINN_CURSOR_BRIDGE_MCP_FILE', __FILE__ );
-	}
-	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_DIR' ) ) {
-		define( 'INYFINN_CURSOR_BRIDGE_MCP_DIR', plugin_dir_path( __FILE__ ) );
-	}
-	if ( ! defined( 'WORDPRESS_MCP_ADAPTER_VERSION' ) ) {
-		define( 'WORDPRESS_MCP_ADAPTER_VERSION', '1.5.3' );
-	}
-	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_VERSION' ) ) {
-		define( 'INYFINN_CURSOR_BRIDGE_VERSION', '1.5.3' );
-	}
-	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_DIR' ) ) {
-		define( 'INYFINN_CURSOR_BRIDGE_DIR', plugin_dir_path( __FILE__ ) );
-	}
-	if ( ! defined( 'INYFINN_CURSOR_BRIDGE_LOADED' ) ) {
-		define( 'INYFINN_CURSOR_BRIDGE_LOADED', true );
+if ( ! function_exists( __NAMESPACE__ . '\\inyfinn_cursor_bridge_mcp_constants' ) ) {
+	function inyfinn_cursor_bridge_mcp_constants(): void {
+		if ( ! defined( 'WP_MCP_DIR' ) ) {
+			define( 'WP_MCP_DIR', plugin_dir_path( __FILE__ ) );
+		}
+		if ( ! defined( 'WP_MCP_VERSION' ) ) {
+			define( 'WP_MCP_VERSION', '1.5.4' );
+		}
+		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ) {
+			define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.5.4' );
+		}
+		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_FILE' ) ) {
+			define( 'INYFINN_CURSOR_BRIDGE_MCP_FILE', __FILE__ );
+		}
+		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_DIR' ) ) {
+			define( 'INYFINN_CURSOR_BRIDGE_MCP_DIR', plugin_dir_path( __FILE__ ) );
+		}
+		if ( ! defined( 'WORDPRESS_MCP_ADAPTER_VERSION' ) ) {
+			define( 'WORDPRESS_MCP_ADAPTER_VERSION', '1.5.4' );
+		}
+		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_VERSION' ) ) {
+			define( 'INYFINN_CURSOR_BRIDGE_VERSION', '1.5.4' );
+		}
+		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_DIR' ) ) {
+			define( 'INYFINN_CURSOR_BRIDGE_DIR', plugin_dir_path( __FILE__ ) );
+		}
+		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_LOADED' ) ) {
+			define( 'INYFINN_CURSOR_BRIDGE_LOADED', true );
+		}
 	}
 }
 

@@ -22,6 +22,13 @@ final class Installer {
 	}
 
 	/**
+	 * Usuń stare kopie wtyczki (np. *.off) — wywoływane przy każdym boot.
+	 */
+	public static function cleanup_duplicate_installations(): void {
+		self::remove_duplicate_plugin_directories();
+	}
+
+	/**
 	 * Full bootstrap — activation hook and MCP ability.
 	 *
 	 * @return array<string, mixed>
@@ -266,10 +273,81 @@ final class Installer {
 			}
 		}
 
+		$duplicate_dirs = self::remove_duplicate_plugin_directories();
+		if ( ! empty( $duplicate_dirs ) ) {
+			$deactivated = array_merge( $deactivated, $duplicate_dirs );
+		}
+
 		return array(
 			'ok'          => true,
 			'deactivated' => $deactivated,
 		);
+	}
+
+	/**
+	 * Usuń kopie zapasowe / stare foldery wtyczki (np. inyfinn-cursor-bridge-mcp-1.3.1.off).
+	 *
+	 * @return list<string> Usunięte ścieżki katalogów.
+	 */
+	private static function remove_duplicate_plugin_directories(): array {
+		$removed = array();
+		$canonical = 'inyfinn-cursor-bridge-mcp';
+		$plugin_root = defined( 'WP_PLUGIN_DIR' ) ? WP_PLUGIN_DIR : '';
+
+		if ( '' === $plugin_root || ! is_dir( $plugin_root ) ) {
+			return $removed;
+		}
+
+		$matches = glob( trailingslashit( $plugin_root ) . 'inyfinn-cursor-bridge-mcp*', GLOB_ONLYDIR );
+		if ( ! is_array( $matches ) ) {
+			return $removed;
+		}
+
+		foreach ( $matches as $dir ) {
+			$basename = basename( $dir );
+			if ( $basename === $canonical ) {
+				continue;
+			}
+
+			$plugin_file = trailingslashit( $dir ) . 'inyfinn-cursor-bridge-mcp.php';
+			if ( is_readable( $plugin_file ) && function_exists( 'deactivate_plugins' ) ) {
+				deactivate_plugins( $basename . '/inyfinn-cursor-bridge-mcp.php', true );
+			}
+
+			if ( self::delete_directory( $dir ) ) {
+				$removed[] = $basename;
+			}
+		}
+
+		return $removed;
+	}
+
+	/**
+	 * @param string $dir Absolute path.
+	 */
+	private static function delete_directory( string $dir ): bool {
+		if ( ! is_dir( $dir ) ) {
+			return false;
+		}
+
+		$items = scandir( $dir );
+		if ( ! is_array( $items ) ) {
+			return false;
+		}
+
+		foreach ( $items as $item ) {
+			if ( '.' === $item || '..' === $item ) {
+				continue;
+			}
+			$path = $dir . DIRECTORY_SEPARATOR . $item;
+			if ( is_dir( $path ) ) {
+				self::delete_directory( $path );
+			} else {
+				wp_delete_file( $path );
+			}
+		}
+
+		return @rmdir( $dir );
 	}
 
 	private static function should_defer_conflict_deactivation(): bool {

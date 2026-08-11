@@ -2,9 +2,6 @@
 /**
  * Auto-load Inyfinn Cursor Bridge MCP (fork MCP Adapter + abilities).
  *
- * Skopiuj ten plik do: wp-content/mu-plugins/
- * (Od v1.1.0 kopiowany automatycznie przy aktywacji wtyczki.)
- *
  * @package Inyfinn_Cursor_Bridge_MCP
  */
 
