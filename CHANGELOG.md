@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.2 — 2026-08-11
+
+### Added
+- **`docs/ODTWORZENIE.md`** — pełna instrukcja odtworzenia projektu od zera (WP + baza + pliki + Cursor)
+- Link w README do instrukcji odtworzenia
+
 ## 1.5.1 — 2026-08-11
 
 ### Fixed

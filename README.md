@@ -1,12 +1,14 @@
 # Inyfinn Cursor Bridge MCP
 
 **Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp  
-**Wersja:** 1.3.5  
+**Wersja:** 1.5.2  
 **Licencja:** GPL-2.0-or-later
 
 Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).
 
-Łączy WordPress z Cursorem przez MCP — bez ręcznego tworzenia Application Password, bez kopiowania haseł z panelu WP.
+Łączy WordPress z Cursorem przez MCP — WordPress + **baza (wpdb)** + **pliki** przez jeden serwer MCP.
+
+**Instrukcja odtworzenia od zera:** [docs/ODTWORZENIE.md](docs/ODTWORZENIE.md)
 
 ---
 
@@ -171,6 +173,8 @@ Pełna lista: [docs/ABILITIES.md](docs/ABILITIES.md)
 
 | Plik | Zawartość |
 |------|-----------|
+| **[docs/ODTWORZENIE.md](docs/ODTWORZENIE.md)** | **Instrukcja odtworzenia od zera (WordPress + baza + pliki)** |
+| [docs/VERIFY.md](docs/VERIFY.md) | Jak sprawdzić, że Cursor ma dostęp |
 | `docs/HARDENING.md` | SVG, uploady, login, limity — zasady bezpieczeństwa |
 | [docs/INSTALLATION.md](docs/INSTALLATION.md) | Instalacja krok po kroku |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Rozwiązywanie problemów |
