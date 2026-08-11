@@ -81,6 +81,15 @@ final class Health {
 			case 'activate_plugin':
 				$result = Installer::ensure_plugin_active();
 				break;
+			case 'enable_app_passwords':
+				Credentials::register_application_password_filters();
+				$result = array(
+					'ok'      => Credentials::application_passwords_available(),
+					'message' => Credentials::application_passwords_available()
+						? 'Application Passwords dostępne (HTTPS / proxy).'
+						: 'Nadal wyłączone — sprawdź filtr wp_is_application_passwords_available.',
+				);
+				break;
 			case 'mu_plugin':
 				$result = Installer::ensure_mu_plugin_loader();
 				break;
@@ -180,14 +189,19 @@ final class Health {
 	 * @return array<string, mixed>
 	 */
 	private static function check_application_passwords_api(): array {
-		$ok = Credentials::application_passwords_available();
+		Credentials::register_application_password_filters();
+		$ok      = Credentials::application_passwords_available();
+		$details = $ok ? 'Dostępne' : 'Wyłączone na tej instalacji (HTTPS/filtr)';
+		if ( $ok && Credentials::wordpress_urls_use_https() && ! is_ssl() ) {
+			$details = 'Dostępne (HTTPS w ustawieniach WP / proxy)';
+		}
 
 		return array(
 			'id'            => 'app_passwords_api',
 			'label'         => 'Application Passwords (WordPress)',
 			'status'        => $ok ? 'ok' : 'error',
-			'message'       => $ok ? 'Dostępne' : 'Wyłączone na tej instalacji (HTTPS/filtr)',
-			'repair_action' => null,
+			'message'       => $details,
+			'repair_action' => $ok ? null : 'enable_app_passwords',
 		);
 	}
 
@@ -195,15 +209,53 @@ final class Health {
 	 * @return array<string, mixed>
 	 */
 	private static function check_app_password(): array {
-		$ok       = Credentials::has_application_password();
 		$username = Credentials::get_mcp_username();
+		$any      = Credentials::count_any_privileged_application_passwords();
+
+		if ( Credentials::has_stored_application_password() ) {
+			return array(
+				'id'            => 'app_password',
+				'label'         => 'Application Password MCP',
+				'status'        => 'ok',
+				'message'       => 'Zapisane w wtyczce — użytkownik: ' . $username,
+				'repair_action' => null,
+			);
+		}
+
+		if ( Credentials::has_application_password() ) {
+			return array(
+				'id'            => 'app_password',
+				'label'         => 'Application Password MCP',
+				'status'        => 'warning',
+				'message'       => sprintf(
+					'Hasło w profilu WP (%d) — wklej poniżej lub kliknij Napraw. MCP user: %s',
+					$any,
+					$username
+				),
+				'repair_action' => 'app_password',
+			);
+		}
+
+		if ( $any > 0 ) {
+			return array(
+				'id'            => 'app_password',
+				'label'         => 'Application Password MCP',
+				'status'        => 'warning',
+				'message'       => sprintf(
+					'Profil ma %d hasło(a) — wklej hasło poniżej (wtyczka nie ma kopii). Użytkownik MCP: %s',
+					$any,
+					$username
+				),
+				'repair_action' => 'app_password',
+			);
+		}
 
 		return array(
 			'id'            => 'app_password',
 			'label'         => 'Application Password MCP',
-			'status'        => $ok ? 'ok' : 'error',
-			'message'       => $ok ? 'Użytkownik: ' . $username : 'Brak hasła „Cursor MCP (Inyfinn)”',
-			'repair_action' => $ok ? null : 'app_password',
+			'status'        => 'error',
+			'message'       => 'Brak hasła — utwórz w profilu lub kliknij Napraw',
+			'repair_action' => 'app_password',
 		);
 	}
 

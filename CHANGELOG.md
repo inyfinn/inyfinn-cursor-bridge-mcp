@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.5 — 2026-08-11
+
+### Fixed
+- **Panel admin**: zapis hasła i auto-setup nie wywołają już `wp_die` („Wybrany odnośnik jest nieaktualny”) przy wygasłym nonce
+- Formularze POST z jawny `action` URL; auto-setup jako POST (nie GET link)
+- Przekierowanie z komunikatem błędu zamiast białej strony WordPress
+
+## 1.3.4 — 2026-08-11
+
+### Fixed
+- **Application Passwords**: wymuszenie dostępności na HTTPS/proxy (`PHP_INT_MAX`, `should_force_application_passwords()`)
+- **Wykrywanie haseł**: liczenie z `_application_passwords` meta dla wszystkich userów z `manage_options` (nie tylko role administrator)
+- **Diagnostyka MCP**: ostrzeżenie gdy hasło jest w profilu WP ale brak kopii w wtyczce
+- **store_application_password**: rejestracja filtrów przed walidacją hasła
+
 ## 1.3.1 — 2026-07-15
 
 ### Changed

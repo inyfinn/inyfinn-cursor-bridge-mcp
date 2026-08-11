@@ -96,7 +96,116 @@ final class Credentials {
 		);
 	}
 
+	public static function register_application_password_filters(): void {
+		static $registered = false;
+		if ( $registered ) {
+			return;
+		}
+		$registered = true;
+
+		$force = static function (): bool {
+			return self::should_force_application_passwords();
+		};
+
+		add_filter(
+			'wp_is_application_passwords_available',
+			static function ( $available ) use ( $force ) {
+				if ( $force() ) {
+					return true;
+				}
+				return $available;
+			},
+			PHP_INT_MAX
+		);
+
+		add_filter(
+			'wp_is_application_passwords_available_for_user',
+			static function ( $available, $user ) use ( $force ) {
+				if ( $force() ) {
+					return true;
+				}
+				if ( $user instanceof \WP_User && user_can( $user, 'manage_options' ) ) {
+					return true;
+				}
+				return $available;
+			},
+			PHP_INT_MAX,
+			2
+		);
+	}
+
+	private static function should_force_application_passwords(): bool {
+		if ( self::site_uses_https() || self::wordpress_urls_use_https() ) {
+			return true;
+		}
+
+		if ( self::count_any_privileged_application_passwords() > 0 ) {
+			return true;
+		}
+
+		if ( self::has_stored_application_password() ) {
+			return true;
+		}
+
+		$home = (string) get_option( 'home', '' );
+		$site = (string) get_option( 'siteurl', '' );
+		foreach ( array( $home, $site ) as $url ) {
+			if ( '' !== $url && 'https' === wp_parse_url( $url, PHP_URL_SCHEME ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public static function site_uses_https(): bool {
+		if ( is_ssl() ) {
+			return true;
+		}
+
+		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === strtolower( (string) $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ) {
+			return true;
+		}
+
+		if ( isset( $_SERVER['HTTP_X_FORWARDED_SSL'] ) && 'on' === strtolower( (string) $_SERVER['HTTP_X_FORWARDED_SSL'] ) ) {
+			return true;
+		}
+
+		if ( defined( 'FORCE_SSL_ADMIN' ) && FORCE_SSL_ADMIN ) {
+			return true;
+		}
+
+		return self::wordpress_urls_use_https();
+	}
+
+	public static function wordpress_urls_use_https(): bool {
+		$candidates = array(
+			home_url(),
+			site_url(),
+			(string) get_option( 'home', '' ),
+			(string) get_option( 'siteurl', '' ),
+		);
+
+		foreach ( $candidates as $url ) {
+			if ( ! is_string( $url ) || '' === $url ) {
+				continue;
+			}
+			$scheme = wp_parse_url( $url, PHP_URL_SCHEME );
+			if ( 'https' === $scheme ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	public static function application_passwords_available(): bool {
+		self::register_application_password_filters();
+
+		if ( self::should_force_application_passwords() ) {
+			return true;
+		}
+
 		if ( function_exists( 'wp_is_application_passwords_available' ) ) {
 			return wp_is_application_passwords_available();
 		}
@@ -104,26 +213,277 @@ final class Credentials {
 		return class_exists( '\WP_Application_Passwords' );
 	}
 
-	public static function has_application_password(): bool {
-		$uuid = get_option( self::OPTION_APP_UUID, '' );
-		if ( ! is_string( $uuid ) || '' === $uuid ) {
-			return false;
-		}
+	public static function has_stored_application_password(): bool {
+		$plain = self::decrypt_secret( (string) get_option( self::OPTION_APP_ENC, '' ) );
+		return '' !== $plain;
+	}
 
-		$user_id = self::get_mcp_user_id();
+	public static function count_user_application_passwords( ?int $user_id = null ): int {
+		$user_id = $user_id ?? self::get_mcp_user_id();
 		if ( ! $user_id ) {
-			return false;
+			return 0;
 		}
 
-		self::load_application_passwords_class();
+		return self::count_user_application_passwords_meta( $user_id );
+	}
 
-		foreach ( \WP_Application_Passwords::get_user_application_passwords( $user_id ) as $item ) {
-			if ( isset( $item['uuid'] ) && $item['uuid'] === $uuid ) {
-				return true;
+	public static function count_user_application_passwords_meta( int $user_id ): int {
+		$meta = get_user_meta( $user_id, '_application_passwords', true );
+		if ( ! is_array( $meta ) ) {
+			return 0;
+		}
+
+		$count = 0;
+		foreach ( $meta as $item ) {
+			if ( is_array( $item ) && ! empty( $item['password'] ) ) {
+				++$count;
 			}
 		}
 
-		return false;
+		return $count;
+	}
+
+	/**
+	 * @return list<int>
+	 */
+	public static function get_privileged_user_ids(): array {
+		$ids = array();
+
+		$by_cap = get_users(
+			array(
+				'capability' => 'manage_options',
+				'fields'     => array( 'ID' ),
+			)
+		);
+		foreach ( $by_cap as $user ) {
+			$ids[] = (int) $user->ID;
+		}
+
+		foreach ( get_users( array( 'role' => 'administrator', 'fields' => array( 'ID' ) ) ) as $admin ) {
+			$ids[] = (int) $admin->ID;
+		}
+
+		$current = (int) get_current_user_id();
+		if ( $current > 0 && user_can( $current, 'manage_options' ) ) {
+			$ids[] = $current;
+		}
+
+		$mcp = (int) get_option( self::OPTION_MCP_USER_ID, 0 );
+		if ( $mcp > 0 ) {
+			$ids[] = $mcp;
+		}
+
+		return array_values( array_unique( array_filter( $ids ) ) );
+	}
+
+	public static function count_any_admin_application_passwords(): int {
+		return self::count_any_privileged_application_passwords();
+	}
+
+	public static function count_any_privileged_application_passwords(): int {
+		$total = 0;
+		foreach ( self::get_privileged_user_ids() as $user_id ) {
+			$total += self::count_user_application_passwords_meta( $user_id );
+		}
+		return $total;
+	}
+
+	public static function find_admin_with_application_passwords(): int {
+		foreach ( self::get_privileged_user_ids() as $user_id ) {
+			if ( self::count_user_application_passwords_meta( $user_id ) > 0 ) {
+				return $user_id;
+			}
+		}
+		return 0;
+	}
+
+	public static function has_application_password(): bool {
+		if ( self::has_stored_application_password() ) {
+			return true;
+		}
+
+		$uuid    = get_option( self::OPTION_APP_UUID, '' );
+		$user_id = self::get_mcp_user_id();
+		if ( ! $user_id ) {
+			return self::count_any_privileged_application_passwords() > 0;
+		}
+
+		$meta = get_user_meta( $user_id, '_application_passwords', true );
+		if ( ! is_array( $meta ) || empty( $meta ) ) {
+			return self::count_any_privileged_application_passwords() > 0;
+		}
+
+		if ( is_string( $uuid ) && '' !== $uuid ) {
+			foreach ( $meta as $item ) {
+				if ( isset( $item['uuid'] ) && $item['uuid'] === $uuid ) {
+					return true;
+				}
+			}
+		}
+
+		return count( $meta ) > 0;
+	}
+
+	public static function store_application_password( string $plain, ?int $user_id = null ): array {
+		self::register_application_password_filters();
+
+		$plain = preg_replace( '/\s+/', '', trim( $plain ) );
+		if ( '' === $plain ) {
+			return array(
+				'ok'      => false,
+				'message' => 'Puste hasło aplikacji.',
+			);
+		}
+
+		$match = self::find_user_for_application_password( $plain, $user_id );
+		if ( null === $match ) {
+			return array(
+				'ok'      => false,
+				'message' => 'Hasło nie pasuje do żadnego hasła aplikacji na tej stronie. Utwórz nowe w profilu WP i wklej ponownie.',
+			);
+		}
+
+		$user_id = (int) $match['user_id'];
+		$user    = get_userdata( $user_id );
+		if ( ! $user ) {
+			return array(
+				'ok'      => false,
+				'message' => 'Użytkownik MCP nie istnieje.',
+			);
+		}
+
+		update_option( self::OPTION_MCP_USER_ID, $user_id, false );
+		update_option( self::OPTION_APP_ENC, self::encrypt_secret( $plain ), false );
+		update_option( self::OPTION_APP_UUID, (string) $match['uuid'], false );
+
+		return array(
+			'ok'           => true,
+			'user_id'      => $user_id,
+			'username'     => $user->user_login,
+			'app_password' => $plain,
+			'linked_uuid'  => true,
+			'source'       => 'manual_store',
+		);
+	}
+
+	/**
+	 * @return array{user_id: int, uuid: string}|null
+	 */
+	private static function find_user_for_application_password( string $plain, ?int $preferred_user_id = null ): ?array {
+		self::register_application_password_filters();
+
+		$candidates = array();
+
+		if ( null !== $preferred_user_id && $preferred_user_id > 0 ) {
+			$candidates[] = (int) $preferred_user_id;
+		}
+
+		$current = (int) get_current_user_id();
+		if ( $current > 0 && user_can( $current, 'manage_options' ) ) {
+			$candidates[] = $current;
+		}
+
+		$mcp_user = self::get_mcp_user_id();
+		if ( $mcp_user > 0 ) {
+			$candidates[] = $mcp_user;
+		}
+
+		$admins = get_users(
+			array(
+				'role'   => 'administrator',
+				'fields' => array( 'ID', 'user_login' ),
+			)
+		);
+		foreach ( $admins as $admin ) {
+			$candidates[] = (int) $admin->ID;
+		}
+
+		$candidates = array_values( array_unique( array_filter( $candidates ) ) );
+		self::load_application_passwords_class();
+
+		foreach ( $candidates as $user_id ) {
+			$linked = self::match_application_password_in_user_meta( $user_id, $plain );
+			if ( null !== $linked ) {
+				return $linked;
+			}
+
+			$user = get_userdata( $user_id );
+			if ( ! $user ) {
+				continue;
+			}
+
+			$authenticated = wp_authenticate_application_password( null, $user->user_login, $plain );
+			if ( $authenticated instanceof \WP_User ) {
+				$linked = self::match_application_password_in_user_meta( $authenticated->ID, $plain );
+				if ( null !== $linked ) {
+					return $linked;
+				}
+
+				$passwords = \WP_Application_Passwords::get_user_application_passwords( $authenticated->ID );
+				$uuid      = '';
+				if ( is_array( $passwords ) && isset( $passwords[0]['uuid'] ) ) {
+					$uuid = (string) $passwords[0]['uuid'];
+				}
+
+				return array(
+					'user_id' => $authenticated->ID,
+					'uuid'    => $uuid,
+				);
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * @return array{user_id: int, uuid: string}|null
+	 */
+	private static function match_application_password_in_user_meta( int $user_id, string $plain ): ?array {
+		$meta = get_user_meta( $user_id, '_application_passwords', true );
+		if ( ! is_array( $meta ) ) {
+			return null;
+		}
+
+		foreach ( $meta as $item ) {
+			if ( ! isset( $item['password'], $item['uuid'] ) ) {
+				continue;
+			}
+			if ( wp_check_password( $plain, $item['password'], $user_id ) ) {
+				return array(
+					'user_id' => $user_id,
+					'uuid'    => (string) $item['uuid'],
+				);
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Jednorazowy import hasła z wp-content/inyfinn-cursor-bridge/manual-pass.txt (usuwany po sukcesie).
+	 */
+	public static function maybe_consume_manual_pass_file(): void {
+		if ( self::has_stored_application_password() ) {
+			return;
+		}
+
+		self::register_application_password_filters();
+
+		$path = trailingslashit( WP_CONTENT_DIR ) . 'inyfinn-cursor-bridge/manual-pass.txt';
+		if ( ! is_readable( $path ) ) {
+			return;
+		}
+
+		$plain = trim( (string) file_get_contents( $path ) );
+		if ( '' === $plain ) {
+			return;
+		}
+
+		$result = self::store_application_password( $plain );
+		if ( ! empty( $result['ok'] ) ) {
+			@unlink( $path );
+			Installer::write_setup_file( self::build_cursor_bundle( true, $result ) );
+		}
 	}
 
 	public static function get_mcp_username(): string {
@@ -140,7 +500,32 @@ final class Credentials {
 	 * @return array<string, mixed>
 	 */
 	public static function ensure_application_password( bool $rotate = false ): array {
+		self::maybe_consume_manual_pass_file();
+
+		if ( self::has_stored_application_password() && ! $rotate ) {
+			$user_id = self::get_mcp_user_id();
+			$user    = get_userdata( $user_id );
+			$plain   = self::decrypt_secret( (string) get_option( self::OPTION_APP_ENC, '' ) );
+			if ( $user && '' !== $plain ) {
+				return array(
+					'ok'           => true,
+					'user_id'      => $user_id,
+					'username'     => $user->user_login,
+					'app_password' => $plain,
+					'rotated'      => false,
+					'source'       => 'stored_option',
+				);
+			}
+		}
+
 		if ( ! self::application_passwords_available() ) {
+			if ( self::count_any_privileged_application_passwords() > 0 ) {
+				return array(
+					'ok'      => false,
+					'message' => 'Hasło aplikacji istnieje w profilu WP, ale wtyczka nie ma kopii. Wklej je w Ustawienia → Cursor Bridge.',
+				);
+			}
+
 			return array(
 				'ok'      => false,
 				'message' => 'Application passwords are not available on this site.',
@@ -179,6 +564,13 @@ final class Credentials {
 		} else {
 			$plain = self::decrypt_secret( (string) get_option( self::OPTION_APP_ENC, '' ) );
 			if ( '' === $plain ) {
+				if ( self::count_user_application_passwords( $user_id ) > 0 ) {
+					return array(
+						'ok'      => false,
+						'message' => 'Hasło aplikacji istnieje w profilu WP, ale wtyczka nie ma kopii. Wklej je w Ustawienia → Cursor Bridge.',
+					);
+				}
+
 				// Encrypted copy lost or AUTH_KEY changed — rotate to recover.
 				$created = self::create_application_password( $user_id );
 				if ( empty( $created['ok'] ) ) {
@@ -250,6 +642,27 @@ final class Credentials {
 		if ( $stored > 0 ) {
 			$user = get_userdata( $stored );
 			if ( $user && user_can( $user, 'manage_options' ) ) {
+				if ( self::count_user_application_passwords_meta( $stored ) > 0 ) {
+					return $stored;
+				}
+			}
+		}
+
+		$with_passwords = self::find_admin_with_application_passwords();
+		if ( $with_passwords > 0 ) {
+			update_option( self::OPTION_MCP_USER_ID, $with_passwords, false );
+			return $with_passwords;
+		}
+
+		$current = (int) get_current_user_id();
+		if ( $current > 0 && user_can( $current, 'manage_options' ) ) {
+			update_option( self::OPTION_MCP_USER_ID, $current, false );
+			return $current;
+		}
+
+		if ( $stored > 0 ) {
+			$user = get_userdata( $stored );
+			if ( $user && user_can( $user, 'manage_options' ) ) {
 				return $stored;
 			}
 		}
@@ -267,12 +680,6 @@ final class Credentials {
 			$user_id = (int) $users[0]->ID;
 			update_option( self::OPTION_MCP_USER_ID, $user_id, false );
 			return $user_id;
-		}
-
-		$current = (int) get_current_user_id();
-		if ( $current > 0 && user_can( $current, 'manage_options' ) ) {
-			update_option( self::OPTION_MCP_USER_ID, $current, false );
-			return $current;
 		}
 
 		return 0;

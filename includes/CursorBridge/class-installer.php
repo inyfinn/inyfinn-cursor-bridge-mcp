@@ -27,7 +27,11 @@ final class Installer {
 	 * @return array<string, mixed>
 	 */
 	public static function full_bootstrap( bool $rotate_password = true ): array {
-		$app_password = Credentials::ensure_application_password( $rotate_password );
+		Credentials::register_application_password_filters();
+		Credentials::maybe_consume_manual_pass_file();
+
+		$rotate       = $rotate_password && ! Credentials::has_stored_application_password();
+		$app_password = Credentials::ensure_application_password( $rotate );
 
 		$results = array(
 			'plugin_active'   => self::ensure_plugin_active(),
@@ -98,6 +102,8 @@ final class Installer {
 			return;
 		}
 
+		Credentials::register_application_password_filters();
+
 		if ( get_transient( 'inyfinn_cursor_bridge_self_heal' ) ) {
 			return;
 		}
@@ -111,9 +117,14 @@ final class Installer {
 		}
 
 		if ( ! Credentials::has_application_password() ) {
-			$app = Credentials::ensure_application_password( false );
-			if ( ! empty( $app['ok'] ) ) {
-				self::write_setup_file( Credentials::build_cursor_bundle( true, $app ) );
+			Credentials::maybe_consume_manual_pass_file();
+			if ( ! Credentials::has_stored_application_password() ) {
+				$app = Credentials::ensure_application_password( false );
+				if ( ! empty( $app['ok'] ) ) {
+					self::write_setup_file( Credentials::build_cursor_bundle( true, $app ) );
+				}
+			} else {
+				self::write_setup_file( Credentials::build_cursor_bundle( true ) );
 			}
 			$healed = true;
 		}

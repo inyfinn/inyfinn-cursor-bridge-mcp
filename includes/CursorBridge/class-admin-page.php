@@ -42,11 +42,16 @@ final class Admin_Page {
 	}
 
 	public static function handle_actions(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( 'manage_options' ) || ! self::is_our_admin_request() ) {
 			return;
 		}
 
-		if ( isset( $_POST['inyfinn_cursor_bridge_save'] ) && check_admin_referer( 'inyfinn_cursor_bridge_settings' ) ) {
+		if ( isset( $_POST['inyfinn_cursor_bridge_save'] ) ) {
+			if ( ! self::verify_nonce( 'inyfinn_cursor_bridge_settings' ) ) {
+				self::nonce_failed_notice();
+				return;
+			}
+
 			Credentials::update_connection(
 				array(
 					'mcp_server_name'        => sanitize_text_field( wp_unslash( $_POST['mcp_server_name'] ?? '' ) ),
@@ -62,39 +67,82 @@ final class Admin_Page {
 					'ftp_pass'               => isset( $_POST['ftp_pass'] ) ? (string) wp_unslash( $_POST['ftp_pass'] ) : '',
 				)
 			);
-			Installer::write_setup_file();
-			add_settings_error( 'inyfinn_cursor_bridge', 'saved', __( 'Ustawienia zapisane. Plik cursor-setup.json odświeżony.', 'inyfinn-cursor-bridge-mcp' ), 'success' );
+
+			if ( ! empty( $_POST['app_password_manual'] ) ) {
+				$store = Credentials::store_application_password( (string) wp_unslash( $_POST['app_password_manual'] ) );
+				if ( empty( $store['ok'] ) ) {
+					add_settings_error(
+						'inyfinn_cursor_bridge',
+						'app_password',
+						(string) ( $store['message'] ?? __( 'Nie udało się zapisać hasła aplikacji.', 'inyfinn-cursor-bridge-mcp' ) ),
+						'error'
+					);
+				} else {
+					Installer::write_setup_file( Credentials::build_cursor_bundle( true, $store ) );
+					add_settings_error(
+						'inyfinn_cursor_bridge',
+						'app_password',
+						sprintf(
+							/* translators: %s: username */
+							__( 'Hasło aplikacji zapisane dla: %s. cursor-setup.json odświeżony.', 'inyfinn-cursor-bridge-mcp' ),
+							(string) ( $store['username'] ?? '' )
+						),
+						'success'
+					);
+				}
+			} else {
+				Installer::write_setup_file();
+				add_settings_error( 'inyfinn_cursor_bridge', 'saved', __( 'Ustawienia zapisane. Plik cursor-setup.json odświeżony.', 'inyfinn-cursor-bridge-mcp' ), 'success' );
+			}
+
+			self::redirect_with_notices( self::admin_page_url() );
 		}
 
-		if ( isset( $_GET['inyfinn_bootstrap'] ) && check_admin_referer( 'inyfinn_bootstrap' ) ) {
+		if ( isset( $_POST['inyfinn_bootstrap'] ) ) {
+			if ( ! self::verify_nonce( 'inyfinn_bootstrap' ) ) {
+				self::nonce_failed_notice();
+				return;
+			}
 			self::handle_bootstrap_result( Installer::full_bootstrap( true ) );
+			self::redirect_with_notices( self::admin_page_url() );
 		}
 
-		if ( isset( $_GET['inyfinn_repair'] ) && check_admin_referer( 'inyfinn_repair' ) ) {
+		if ( isset( $_GET['inyfinn_bootstrap'] ) ) {
+			if ( ! self::verify_nonce( 'inyfinn_bootstrap' ) ) {
+				self::nonce_failed_notice();
+				self::redirect_with_notices( self::admin_page_url() );
+			}
+			self::handle_bootstrap_result( Installer::full_bootstrap( true ) );
+			self::redirect_with_notices( self::admin_page_url() );
+		}
+
+		if ( isset( $_POST['inyfinn_repair'] ) ) {
+			if ( ! self::verify_nonce( 'inyfinn_repair' ) ) {
+				self::nonce_failed_notice();
+				return;
+			}
+			$action = sanitize_key( (string) wp_unslash( $_POST['inyfinn_repair'] ) );
+			$rotate = ! empty( $_POST['rotate'] );
+			self::flash_repair_result( Health::repair( $action, $rotate ), $action );
+			self::redirect_with_notices( self::admin_page_url() );
+		}
+
+		if ( isset( $_GET['inyfinn_repair'] ) ) {
+			if ( ! self::verify_nonce( 'inyfinn_repair' ) ) {
+				self::nonce_failed_notice();
+				self::redirect_with_notices( self::admin_page_url() );
+			}
 			$action = sanitize_key( (string) wp_unslash( $_GET['inyfinn_repair'] ) );
 			$rotate = ! empty( $_GET['rotate'] );
-			$result = Health::repair( $action, $rotate );
-			if ( ! empty( $result['ok'] ) || ! empty( $result['health']['healthy'] ) ) {
-				add_settings_error(
-					'inyfinn_cursor_bridge',
-					'repair',
-					sprintf(
-						/* translators: %s: repair action id */
-						__( 'Naprawa „%s” wykonana. Odśwież diagnostykę poniżej.', 'inyfinn-cursor-bridge-mcp' ),
-						$action
-					),
-					'success'
-				);
-			} else {
-				$msg = $result['message'] ?? __( 'Naprawa nie powiodła się.', 'inyfinn-cursor-bridge-mcp' );
-				if ( is_array( $msg ) ) {
-					$msg = $msg['message'] ?? wp_json_encode( $msg );
-				}
-				add_settings_error( 'inyfinn_cursor_bridge', 'repair', (string) $msg, 'error' );
-			}
+			self::flash_repair_result( Health::repair( $action, $rotate ), $action );
+			self::redirect_with_notices( self::admin_page_url() );
 		}
 
-		if ( isset( $_POST['inyfinn_apply_hardening'] ) && check_admin_referer( 'inyfinn_apply_hardening' ) ) {
+		if ( isset( $_POST['inyfinn_apply_hardening'] ) ) {
+			if ( ! self::verify_nonce( 'inyfinn_apply_hardening' ) ) {
+				self::nonce_failed_notice();
+				return;
+			}
 			$selected  = array_map( 'sanitize_key', (array) wp_unslash( $_POST['hardening_features'] ?? array() ) );
 			$prefer_fn = ! empty( $_POST['prefer_functions_php'] );
 			$force     = ! empty( $_POST['hardening_force'] );
@@ -124,6 +172,7 @@ final class Admin_Page {
 				}
 				self::flash_hardening_result( array( 'results' => $results ), 'batch' );
 			}
+			self::redirect_with_notices( self::admin_page_url() );
 		}
 	}
 
@@ -220,7 +269,7 @@ final class Admin_Page {
 		$bundle        = Credentials::build_cursor_bundle( false );
 		$health        = Health::run_checks();
 		$hardening     = Hardening::status();
-		$bootstrap_url = wp_nonce_url( admin_url( 'options-general.php?page=inyfinn-cursor-bridge&inyfinn_bootstrap=1' ), 'inyfinn_bootstrap' );
+		$page_url      = self::admin_page_url();
 
 		settings_errors( 'inyfinn_cursor_bridge' );
 		?>
@@ -268,16 +317,19 @@ final class Admin_Page {
 				</tbody>
 			</table>
 			<p style="margin-top:1em">
-				<a href="<?php echo esc_url( $bootstrap_url ); ?>" class="button button-primary">
-					<?php esc_html_e( 'Pełny auto-setup MCP', 'inyfinn-cursor-bridge-mcp' ); ?>
-				</a>
+				<form method="post" action="<?php echo esc_url( $page_url ); ?>" style="display:inline">
+					<?php wp_nonce_field( 'inyfinn_bootstrap' ); ?>
+					<button type="submit" name="inyfinn_bootstrap" value="1" class="button button-primary">
+						<?php esc_html_e( 'Pełny auto-setup MCP', 'inyfinn-cursor-bridge-mcp' ); ?>
+					</button>
+				</form>
 			</p>
 
 			<h2><?php esc_html_e( 'Poprawki strony (SVG, uploady, wp-config, limity PHP)', 'inyfinn-cursor-bridge-mcp' ); ?></h2>
 			<p>
 				<?php esc_html_e( 'Zaznacz poprawki i kliknij „Zastosuj” — wtyczka zrobi backup i wstrzyknie kod do mu-plugins, functions.php, wp-config.php lub .user.ini/.htaccess.', 'inyfinn-cursor-bridge-mcp' ); ?>
 			</p>
-			<form method="post" action="">
+			<form method="post" action="<?php echo esc_url( $page_url ); ?>">
 				<?php wp_nonce_field( 'inyfinn_apply_hardening' ); ?>
 				<table class="widefat striped" style="max-width:960px">
 					<thead>
@@ -360,10 +412,25 @@ final class Admin_Page {
 				</p></div>
 			<?php endif; ?>
 
-			<form method="post" style="margin-top:2em">
+			<form method="post" action="<?php echo esc_url( $page_url ); ?>" style="margin-top:2em">
 				<?php wp_nonce_field( 'inyfinn_cursor_bridge_settings' ); ?>
 				<h2><?php esc_html_e( 'Połączenie (SSH / workspace)', 'inyfinn-cursor-bridge-mcp' ); ?></h2>
 				<table class="form-table">
+					<tr>
+						<th><label for="app_password_manual"><?php esc_html_e( 'Hasło aplikacji MCP', 'inyfinn-cursor-bridge-mcp' ); ?></label></th>
+						<td>
+							<input name="app_password_manual" id="app_password_manual" type="password" class="large-text" autocomplete="new-password" placeholder="<?php esc_attr_e( 'Wklej hasło z profilu WP (np. xxxx xxxx xxxx)', 'inyfinn-cursor-bridge-mcp' ); ?>" />
+							<p class="description">
+								<?php
+								printf(
+									/* translators: %s: username */
+									esc_html__( 'Jeśli utworzyłeś hasło ręcznie w profilu — wklej je tutaj. MCP user: %s', 'inyfinn-cursor-bridge-mcp' ),
+									esc_html( Credentials::get_mcp_username() )
+								);
+								?>
+							</p>
+						</td>
+					</tr>
 					<tr>
 						<th><label for="mcp_server_name">MCP server name</label></th>
 						<td><input name="mcp_server_name" id="mcp_server_name" class="regular-text" value="<?php echo esc_attr( $conn['mcp_server_name'] ); ?>" /></td>
@@ -454,6 +521,86 @@ final class Admin_Page {
 			'error'   => '<span style="color:#d63638;font-weight:600">✗</span>',
 		);
 		echo wp_kses_post( $labels[ $status ] ?? esc_html( $status ) );
+	}
+
+	private static function admin_page_url(): string {
+		return admin_url( 'options-general.php?page=inyfinn-cursor-bridge' );
+	}
+
+	private static function is_our_admin_request(): bool {
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		if ( 'inyfinn-cursor-bridge' === $page ) {
+			return true;
+		}
+
+		$post_keys = array(
+			'inyfinn_cursor_bridge_save',
+			'inyfinn_apply_hardening',
+			'inyfinn_bootstrap',
+			'inyfinn_repair',
+		);
+		foreach ( $post_keys as $key ) {
+			if ( isset( $_POST[ $key ] ) ) {
+				return true;
+			}
+		}
+
+		return isset( $_GET['inyfinn_bootstrap'] ) || isset( $_GET['inyfinn_repair'] );
+	}
+
+	private static function verify_nonce( string $action, string $query_arg = '_wpnonce' ): bool {
+		$nonce = '';
+		if ( isset( $_REQUEST[ $query_arg ] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_REQUEST[ $query_arg ] ) );
+		}
+
+		if ( '' === $nonce ) {
+			return false;
+		}
+
+		return (bool) wp_verify_nonce( $nonce, $action );
+	}
+
+	private static function nonce_failed_notice(): void {
+		add_settings_error(
+			'inyfinn_cursor_bridge',
+			'nonce',
+			__( 'Sesja wygasła lub link jest nieaktualny — odśwież stronę Cursor Bridge i spróbuj ponownie.', 'inyfinn-cursor-bridge-mcp' ),
+			'error'
+		);
+	}
+
+	private static function redirect_with_notices( string $url ): void {
+		if ( get_settings_errors( 'inyfinn_cursor_bridge' ) ) {
+			set_transient( 'settings_errors', get_settings_errors(), 30 );
+		}
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * @param array<string, mixed> $result
+	 */
+	private static function flash_repair_result( array $result, string $action ): void {
+		if ( ! empty( $result['ok'] ) || ! empty( $result['health']['healthy'] ) ) {
+			add_settings_error(
+				'inyfinn_cursor_bridge',
+				'repair',
+				sprintf(
+					/* translators: %s: repair action id */
+					__( 'Naprawa „%s” wykonana. Odśwież diagnostykę poniżej.', 'inyfinn-cursor-bridge-mcp' ),
+					$action
+				),
+				'success'
+			);
+			return;
+		}
+
+		$msg = $result['message'] ?? __( 'Naprawa nie powiodła się.', 'inyfinn-cursor-bridge-mcp' );
+		if ( is_array( $msg ) ) {
+			$msg = $msg['message'] ?? wp_json_encode( $msg );
+		}
+		add_settings_error( 'inyfinn_cursor_bridge', 'repair', (string) $msg, 'error' );
 	}
 
 	private static function repair_url( string $action ): string {
