@@ -43,6 +43,7 @@ final class Hosting_Profiles {
 					'Pliki: zamontowany workspace SFTP LUB cursor-bridge/read/write-wp-content-file.',
 					'SSH opcjonalny — tylko dla WP-CLI w terminalu.',
 					'Test: cursor-bridge/ping, cursor-bridge/db-query, cursor-bridge/health-check.',
+					'Przy 403 na REST: nie zakładaj Imunify360 — sprawdź aktywne WAF (np. Wordfence), treść odpowiedzi curl i WAF w panelu SEOHost.',
 				),
 				'wp_cli_hint' => 'php ~/wp-cli.phar',
 				'ssh_hint'    => 'Klucz publiczny w panelu hostingu; ścieżka public_html z panelu (np. /home/user/domains/domena.pl/public_html).',

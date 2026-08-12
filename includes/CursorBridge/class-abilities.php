@@ -263,10 +263,23 @@ final class Abilities {
 			'cursor-bridge/health-check',
 			array(
 				'label'               => 'Health Check',
-				'description'         => 'Full diagnostic: plugin, MCP, abilities, setup file. Use to verify installation.',
+				'description'         => 'Full diagnostic: plugin, MCP, abilities, setup file, WAF plugins. Use to verify installation.',
 				'category'            => 'cursor-bridge',
 				'output_schema'       => array( 'type' => 'object' ),
 				'execute_callback'    => static fn() => Health::run_checks(),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/diagnose-rest-firewall',
+			array(
+				'label'               => 'Diagnose REST / WAF block',
+				'description'         => 'Lists active security/WAF plugins from filesystem — do not guess Imunify360. Use when Cursor gets 403 on wp-json.',
+				'category'            => 'cursor-bridge',
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static fn() => Rest_Firewall_Diagnostics::report(),
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta(),
 			)
@@ -861,6 +874,32 @@ final class Abilities {
 				'execute_callback'    => static function ( $input = array() ): array {
 					$input = is_array( $input ) ? $input : array();
 					return Db_Query::run( (string) ( $input['sql'] ?? '' ) );
+				},
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/update-post-meta',
+			array(
+				'label'               => 'Update Post Meta (safe)',
+				'description'         => 'Targeted str_replace on one post meta key. Validates Elementor JSON before write.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'post_id'  => array( 'type' => 'integer' ),
+						'meta_key' => array( 'type' => 'string' ),
+						'from'     => array( 'type' => 'string' ),
+						'to'       => array( 'type' => 'string' ),
+					),
+					'required'   => array( 'post_id', 'meta_key', 'from', 'to' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Local_Queue::run_replace_post_meta( $input );
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta(),

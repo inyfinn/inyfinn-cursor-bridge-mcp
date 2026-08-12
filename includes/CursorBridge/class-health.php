@@ -27,6 +27,7 @@ final class Health {
 			self::check_mcp_adapter(),
 			self::check_abilities_registered(),
 			self::check_conflicting_plugins(),
+			self::check_rest_firewall_risk(),
 			self::check_db_access(),
 			self::check_mcp_rest_route(),
 		);
@@ -387,6 +388,34 @@ final class Health {
 			'status'        => $ok ? 'ok' : 'warning',
 			'message'       => $ok ? 'Brak duplikatu' : 'Aktywny: ' . implode( ', ', $active ),
 			'repair_action' => $ok ? null : 'conflicts',
+		);
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function check_rest_firewall_risk(): array {
+		$report   = Rest_Firewall_Diagnostics::report();
+		$waf_list = $report['active_waf_plugins'] ?? array();
+		$names    = array();
+		foreach ( $waf_list as $plugin ) {
+			if ( is_array( $plugin ) && isset( $plugin['name'] ) ) {
+				$names[] = (string) $plugin['name'];
+			}
+		}
+
+		$has_waf = ! empty( $names );
+		$message = $has_waf
+			? 'Aktywny WAF w WP: ' . implode( ', ', $names ) . ' — zewnętrzne REST z Cursora może dostać 403. Sprawdź treść odpowiedzi, nie zakładaj Imunify360.'
+			: 'Brak znanych wtyczek WAF w WP — przy 403 sprawdź panel hostingu (WAF domeny) i treść odpowiedzi HTTP.';
+
+		return array(
+			'id'            => 'rest_firewall',
+			'label'         => 'REST / WAF (diagnostyka z wtyczek)',
+			'status'        => $has_waf ? 'warning' : 'ok',
+			'message'       => $message,
+			'repair_action' => null,
+			'details'       => $report,
 		);
 	}
 

@@ -220,6 +220,7 @@ Agent:
 | Brak hasła MCP | Hasło tylko w profilu WP | Wklej w **Ustawienia → Cursor Bridge** |
 | MCP offline w Cursor | Stary config / brak restart | Zaktualizuj `mcp.json`, restart MCP |
 | 401 na REST | Złe hasło lub user | Sprawdź `inyfinn` / login admina |
+| **403 na REST z Cursora** | **WAF** — Wordfence, AIOS, panel hostingu (SEOHost WAF) | **Nie zgaduj Imunify360.** `health-check` → `rest_firewall`; treść curl; whitelist IP; Wordfence → Firewall |
 | Zły endpoint | srvXXX.seohost vs domena | Użyj `home_url()` — domena publiczna |
 | „Brak bazy” w Cursor | Zdalny mariadb MCP | Użyj `cursor-bridge/db-query`, nie mariadb |
 | Access denied MySQL z PC | Hosting blokuje 3306 | Normalne — użyj wpdb przez wtyczkę |

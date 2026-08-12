@@ -20,11 +20,23 @@ Baza = `cursor-bridge/db-query` (wpdb na serwerze). **NIE** zdalny mariadb MCP.
 
 | Problem | Fix w wtyczce |
 |---------|----------------|
+| REST 403 z Cursora | WAF (Wordfence / panel hostingu) — **nie zgaduj** | `health-check` → `rest_firewall`; treść odpowiedzi curl; whitelist IP |
 | Zły URL (srv112808 vs kubara.pl) | Bundle używa `home_url()` |
 | Brak hasła w wtyczce | Pole w panelu + `store_application_password` |
 | App Passwords „wyłączone” | Force enable na HTTPS/proxy |
 | wp_die przy zapisie | Nonce bez wp_die |
 | „Brak bazy” | db-query przez wpdb, nie remote MySQL |
+
+## Diagnostyka 403 (REST / MCP)
+
+**Nie zakładaj Imunify360** bez dowodu w treści odpowiedzi HTTP.
+
+1. `cursor-bridge/verify-connection` lub `health-check` → pole `rest_firewall` / check `rest_firewall`
+2. Sprawdź **aktywne wtyczki** (na kubara.pl: **Wordfence Security** ma WAF)
+3. `curl -u "user:pass" -w "%{http_code}" URL/ping` — odczytaj body (Wordfence, Imunify, puste = WAF serwera)
+4. Wordfence: Firewall → whitelist IP; logi `wp-content/wflogs/`
+5. Panel hostingu (SEOHost): WAF domeny — niezależna warstwa od WordPress
+6. Workaround: Local Queue (`wp-content/inyfinn-cursor-bridge/queue/`)
 
 ## Polecenie użytkownika
 

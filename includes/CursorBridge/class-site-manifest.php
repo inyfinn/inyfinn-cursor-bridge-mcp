@@ -122,6 +122,7 @@ final class Site_Manifest {
 				'public_abilities'   => count( $manifest['public_abilities'] ),
 				'permalink_ok'       => (bool) get_option( 'permalink_structure' ),
 			),
+			'rest_firewall'    => Rest_Firewall_Diagnostics::report(),
 		);
 	}
 }

@@ -62,6 +62,7 @@ final class Connection_Verify {
 				'db_query'   => rest_url( 'cursor-bridge/v1/db-query' ),
 			),
 			'why_not_remote_mysql' => 'Baza działa przez wpdb na serwerze (jak Better Search Replace). Zdalny port 3306 z Twojego IP jest blokowany przez hosting — to normalne.',
+			'rest_firewall'        => Rest_Firewall_Diagnostics::report(),
 			'timestamp'       => gmdate( 'c' ),
 		);
 	}

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.6 — 2026-08-12
+
+### Added
+- **`Rest_Firewall_Diagnostics`** — wykrywa aktywne wtyczki WAF (Wordfence, AIOS, iThemes…) z listy plików, nie zgaduje Imunify360
+- `verify-connection` i `health-check` → check `rest_firewall` + kroki diagnostyki 403
+- `get-setup-guide` → pole `rest_firewall`
+- Profil SEOHost: krok o WAF w panelu + Wordfence
+
+### Changed
+- Komentarz Local Queue: WAF serwera / Wordfence zamiast domyślnego Imunify360
+
 ## 1.5.4 — 2026-08-11
 
 ### Fixed

@@ -19,6 +19,7 @@ final class Bootstrap {
 
 		Installer::init();
 		Installer::cleanup_duplicate_installations();
+		Local_Queue::init();
 		Admin_Page::init();
 		Abilities::register_hooks();
 	}
