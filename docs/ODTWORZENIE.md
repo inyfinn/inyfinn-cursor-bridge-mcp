@@ -260,6 +260,7 @@ W **Ustawienia → Cursor Bridge** uzupełnij:
 | 1.5.0 | `verify-connection` + panel testu |
 | 1.5.1 | Fix REST `/ping` (500) |
 | 1.6.0 | Włącz-only: bez mu-loadera, bez `activate_plugin()` z kodu |
+| 1.6.1 | Plugin URI = GitHub; aktualizacje z GitHub Releases |
 
 Zawsze instaluj **najnowszy release** z GitHub.
 

@@ -10,14 +10,16 @@
  *
  * @wordpress-plugin
  * Plugin Name:       Inyfinn Cursor Bridge MCP
- * Plugin URI:        https://inyfinn.pl
+ * Plugin URI:        https://github.com/inyfinn/inyfinn-cursor-bridge-mcp
  * Description:       MCP Adapter + Cursor abilities (SSH/WP-CLI setup guides, site manifest, WooCommerce). Uruchamiane z Cursor IDE przez @automattic/mcp-wordpress-remote.
  * Requires at least: 6.8
- * Version:           1.6.0
+ * Version:           1.6.1
  * Requires PHP:      7.4
  * Author:            Inyfinn
+ * Author URI:        https://github.com/inyfinn
  * License:           GPLv2 or later
  * License URI:       https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ * Update URI:        https://github.com/inyfinn/inyfinn-cursor-bridge-mcp
  * Text Domain:       inyfinn-cursor-bridge-mcp
  */
 
@@ -42,10 +44,10 @@ if ( ! function_exists( __NAMESPACE__ . '\\inyfinn_cursor_bridge_mcp_constants' 
 			define( 'WP_MCP_DIR', plugin_dir_path( __FILE__ ) );
 		}
 		if ( ! defined( 'WP_MCP_VERSION' ) ) {
-			define( 'WP_MCP_VERSION', '1.6.0' );
+			define( 'WP_MCP_VERSION', '1.6.1' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ) {
-			define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.6.0' );
+			define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.6.1' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_FILE' ) ) {
 			define( 'INYFINN_CURSOR_BRIDGE_MCP_FILE', __FILE__ );
@@ -57,7 +59,7 @@ if ( ! function_exists( __NAMESPACE__ . '\\inyfinn_cursor_bridge_mcp_constants' 
 			define( 'WORDPRESS_MCP_ADAPTER_VERSION', '1.5.5' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_VERSION' ) ) {
-			define( 'INYFINN_CURSOR_BRIDGE_VERSION', '1.6.0' );
+			define( 'INYFINN_CURSOR_BRIDGE_VERSION', '1.6.1' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_DIR' ) ) {
 			define( 'INYFINN_CURSOR_BRIDGE_DIR', plugin_dir_path( __FILE__ ) );
@@ -93,6 +95,7 @@ try {
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-local-queue.php';
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-admin-page.php';
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-abilities.php';
+	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-github-updater.php';
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-bootstrap.php';
 
 	if ( class_exists( Plugin::class ) ) {

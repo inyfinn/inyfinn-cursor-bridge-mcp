@@ -24,7 +24,7 @@ function smoke_assert( bool $condition, string $message ): void {
 }
 
 // Classes loaded.
-smoke_assert( class_exists( '\Inyfinn_Cursor_Bridge\Installer' ), 'Installer class' );
+smoke_assert( class_exists( '\Inyfinn_Cursor_Bridge\GitHub_Updater' ), 'GitHub_Updater class' );
 smoke_assert( class_exists( '\Inyfinn_Cursor_Bridge\Credentials' ), 'Credentials class' );
 smoke_assert( class_exists( '\Inyfinn_Cursor_Bridge\File_Reader' ), 'File_Reader class' );
 

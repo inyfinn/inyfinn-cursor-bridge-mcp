@@ -22,6 +22,8 @@
 
 4. **Ustawienia → Cursor Bridge** — sprawdź diagnostykę
 
+Kolejne wersje: **Wtyczki** w WP Admin — aktualizacja z GitHub Releases (nagłówek `Update URI`). Nie trzeba wgrywać ZIP ręcznie.
+
 ---
 
 ## Metoda B — FTP / SFTP

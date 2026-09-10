@@ -1,7 +1,7 @@
 # Inyfinn Cursor Bridge MCP
 
 **Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp  
-**Wersja:** 1.6.0  
+**Wersja:** 1.6.1  
 **Licencja:** GPL-2.0-or-later
 
 Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).
@@ -57,6 +57,8 @@ wp-content/plugins/inyfinn-cursor-bridge-mcp/
 **WP Admin → Wtyczki → Włącz „Inyfinn Cursor Bridge MCP”**
 
 Auto-setup (hasło, `cursor-setup.json`) uruchamia się **tylko** przy tym kliknięciu. Wtyczka nie aktywuje się sama z mu-pluginu ani z agenta.
+
+**Witryna wtyczki** (link „Odwiedź witrynę wtyczki”) to GitHub. Od 1.6.1 nowe wydania pojawiają się w **Wtyczki → Zaktualizuj** z GitHub Releases (jak wtyczki z wordpress.org). Pierwsza instalacja nadal ZIP; kolejne wersje — z panelu.
 
 ### Krok 3 — Sprawdź diagnostykę
 

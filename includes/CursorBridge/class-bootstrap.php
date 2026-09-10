@@ -23,6 +23,7 @@ final class Bootstrap {
 		Local_Queue::init();
 		Admin_Page::init();
 		Abilities::register_hooks();
+		GitHub_Updater::init();
 	}
 
 	public static function on_activate(): void {

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.1 — 2026-09-10
+
+### Added
+- **Aktualizacje z GitHub Releases** — filtr `update_plugins_github.com` (WP 5.8+). ZIP z assetu `inyfinn-cursor-bridge-mcp-*.zip`, nie zipball źródła.
+- Szczegóły wersji w panelu Wtyczki (`plugins_api`) z notatek wydania.
+
+### Changed
+- `Plugin URI` i `Update URI` → https://github.com/inyfinn/inyfinn-cursor-bridge-mcp („Odwiedź witrynę wtyczki”).
+- `Author URI` → https://github.com/inyfinn
+
+Źródła: [Update URI](https://make.wordpress.org/core/2021/06/29/introducing-update-uri-plugin-header-in-wordpress-5-8/), [GitHub Releases API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release), [Plugin headers](https://developer.wordpress.org/plugins/plugin-basics/header-requirements/).
+
 ## 1.6.0 — 2026-09-10
 
 ### Breaking
