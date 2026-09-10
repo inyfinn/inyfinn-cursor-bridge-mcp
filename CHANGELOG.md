@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6.0 — 2026-09-10
+
+### Breaking
+- Wtyczka **ładuje się wyłącznie po przycisku Włącz** (`active_plugins`). Kod nie woła `activate_plugin()`.
+- **MU-plugin loader usunięty.** 1.5.x kopiował `000-inyfinn-cursor-bridge-mcp-loader.php` i omijał Włącz — to wywalało strony (m.in. liquidjungle.pl).
+- `plugins_loaded` **nie** odpala już `full_bootstrap()` sam z siebie.
+
+### Changed
+- `register_activation_hook` = setup (hasło, `cursor-setup.json`) + kasowanie leftover loadera. Źródło: [Plugin activation hooks](https://developer.wordpress.org/plugins/plugin-basics/activation-deactivation-hooks/).
+- `register_deactivation_hook` kasuje leftover mu-loader.
+- Diagnostyka: brak mu-loadera = **OK**; obecność = błąd + Napraw (usuwa).
+- Boot owinięty w `try/catch (Throwable)` — błąd wtyczki = notice w adminie, nie critical error całej strony.
+
+### Fixed
+- Przycisk Włącz faktycznie aktywuje PHP wtyczki; agent/mu-plugin nie aktywuje jej z wewnątrz.
+
 ## 1.5.6 — 2026-08-12
 
 ### Added

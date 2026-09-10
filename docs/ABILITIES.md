@@ -48,7 +48,7 @@ Naprawa jednego komponentu. Uprawnienie: `manage_options`.
 }
 ```
 
-**Akcje:** `activate_plugin`, `mu_plugin`, `app_password`, `setup_file`, `setup_directory`, `permalinks`, `conflicts`, `profile`, `full_bootstrap`
+**Akcje:** `mu_plugin` (usuwa leftover loader 1.5.x), `app_password`, `setup_file`, `setup_directory`, `permalinks`, `conflicts`, `profile`, `full_bootstrap`. `activate_plugin` tylko raportuje — włączenie = przycisk **Włącz** w WP Admin.
 
 ### `cursor-bridge/run-auto-setup`
 

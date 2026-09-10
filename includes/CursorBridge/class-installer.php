@@ -1,6 +1,6 @@
 <?php
 /**
- * Automatic installation: mu-plugin loader, setup file, conflicting plugins.
+ * Automatic installation: setup file, conflicting plugins. No force-load mu-plugin.
  *
  * @package Inyfinn_Cursor_Bridge_MCP
  */
@@ -42,7 +42,7 @@ final class Installer {
 
 		$results = array(
 			'plugin_active'   => self::ensure_plugin_active(),
-			'mu_plugin'       => self::ensure_mu_plugin_loader(),
+			'mu_plugin'       => self::remove_mu_plugin_loader(),
 			'conflicts'       => self::deactivate_conflicting_plugins(),
 			'profile'         => self::ensure_hosting_profile(),
 			'app_password'    => $app_password,
@@ -70,7 +70,7 @@ final class Installer {
 	 * @param array<string, mixed> $results
 	 */
 	private static function is_bootstrap_successful( array $results ): bool {
-		foreach ( array( 'plugin_active', 'mu_plugin', 'app_password', 'setup_file' ) as $key ) {
+		foreach ( array( 'plugin_active', 'app_password', 'setup_file' ) as $key ) {
 			if ( empty( $results[ $key ]['ok'] ) ) {
 				return false;
 			}
@@ -118,8 +118,8 @@ final class Installer {
 
 		$healed = false;
 
-		if ( ! self::mu_plugin_loader_present() ) {
-			self::ensure_mu_plugin_loader();
+		if ( self::mu_plugin_loader_present() ) {
+			self::remove_mu_plugin_loader();
 			$healed = true;
 		}
 
@@ -141,54 +141,59 @@ final class Installer {
 		}
 	}
 
+	public static function mu_plugin_loader_path(): string {
+		$mu_dir = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins';
+
+		return trailingslashit( $mu_dir ) . '000-inyfinn-cursor-bridge-mcp-loader.php';
+	}
+
 	/**
+	 * Usuń leftover z 1.5.x — wtyczka ma się ładować tylko po Włącz (active_plugins).
+	 *
 	 * @return array<string, mixed>
 	 */
-	public static function ensure_mu_plugin_loader(): array {
-		$mu_dir  = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins';
-		$dest    = trailingslashit( $mu_dir ) . '000-inyfinn-cursor-bridge-mcp-loader.php';
-		$source  = INYFINN_CURSOR_BRIDGE_MCP_DIR . 'install/mu-plugins/000-inyfinn-cursor-bridge-mcp-loader.php';
-		$created = false;
-		$updated = false;
+	public static function remove_mu_plugin_loader(): array {
+		$dest    = self::mu_plugin_loader_path();
+		$existed = file_exists( $dest );
 
-		if ( ! is_dir( $mu_dir ) ) {
-			wp_mkdir_p( $mu_dir );
-		}
-
-		if ( ! is_readable( $source ) ) {
-			return array(
-				'ok'      => false,
-				'message' => 'Loader source missing in plugin package.',
-			);
-		}
-
-		if ( ! file_exists( $dest ) ) {
-			$created = (bool) copy( $source, $dest );
-		} else {
-			$existing = file_get_contents( $dest );
-			$incoming = file_get_contents( $source );
-			if ( false !== $existing && false !== $incoming && $existing !== $incoming ) {
-				$updated = (bool) copy( $source, $dest );
+		if ( $existed ) {
+			if ( function_exists( 'wp_delete_file' ) ) {
+				wp_delete_file( $dest );
+			}
+			if ( file_exists( $dest ) ) {
+				@unlink( $dest ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 			}
 		}
 
+		$gone = ! file_exists( $dest );
+
 		return array(
-			'ok'      => file_exists( $dest ) && is_readable( $dest ),
+			'ok'      => $gone,
+			'removed' => $existed && $gone,
 			'path'    => $dest,
-			'created' => $created,
-			'updated' => $updated,
+			'message' => $gone
+				? ( $existed ? 'Usunięto legacy mu-loader — wtyczka startuje tylko po Włącz.' : 'Brak mu-loadera (ładuje tylko Włącz).' )
+				: 'Nie udało się usunąć mu-loadera: ' . $dest,
 		);
 	}
 
-	public static function mu_plugin_loader_present(): bool {
-		$mu_dir = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR : WP_CONTENT_DIR . '/mu-plugins';
-		$dest   = trailingslashit( $mu_dir ) . '000-inyfinn-cursor-bridge-mcp-loader.php';
+	/**
+	 * @deprecated 1.6.0 Napraw z panelu usuwa loader, nie instaluje.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function ensure_mu_plugin_loader(): array {
+		return self::remove_mu_plugin_loader();
+	}
 
-		return is_readable( $dest );
+	public static function mu_plugin_loader_present(): bool {
+		return is_readable( self::mu_plugin_loader_path() );
 	}
 
 	/**
-	 * Ensure plugin is in active_plugins (mu-loader alone is not enough for WP admin / updates).
+	 * Raportuje, czy WP ma wtyczkę w active_plugins. Nie woła activate_plugin().
+	 *
+	 * Źródło: https://developer.wordpress.org/plugins/plugin-basics/activation-deactivation-hooks/
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -214,17 +219,10 @@ final class Installer {
 			);
 		}
 
-		$result = activate_plugin( $plugin, '', false, true );
-		if ( is_wp_error( $result ) ) {
-			return array(
-				'ok'      => false,
-				'message' => $result->get_error_message(),
-			);
-		}
-
 		return array(
-			'ok'        => true,
-			'activated' => true,
+			'ok'        => false,
+			'activated' => false,
+			'message'   => 'Włącz wtyczkę przyciskiem Włącz na ekranie Wtyczki. Kod nie wywołuje activate_plugin().',
 		);
 	}
 

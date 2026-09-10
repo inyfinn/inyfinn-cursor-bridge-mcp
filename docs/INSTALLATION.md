@@ -53,8 +53,8 @@ Aktywuj w panelu WP.
 
 | Krok | Plik / efekt |
 |------|----------------|
-| 1 | Wtyczka dodana do `active_plugins` |
-| 2 | `wp-content/mu-plugins/000-inyfinn-cursor-bridge-mcp-loader.php` |
+| 1 | WordPress dopisuje wtyczkę do `active_plugins` (przycisk Włącz) |
+| 2 | Kasowany leftover `mu-plugins/000-inyfinn-cursor-bridge-mcp-loader.php` (1.5.x) |
 | 3 | Application Password „Cursor MCP (Inyfinn)” |
 | 4 | `wp-content/inyfinn-cursor-bridge/cursor-setup.json` |
 | 5 | Profil hostingu (auto: seohost jeśli domena zawiera „seohost”) |

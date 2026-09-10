@@ -15,6 +15,7 @@ final class Bootstrap {
 		Credentials::register_application_password_filters();
 
 		register_activation_hook( INYFINN_CURSOR_BRIDGE_MCP_FILE, array( __CLASS__, 'on_activate' ) );
+		register_deactivation_hook( INYFINN_CURSOR_BRIDGE_MCP_FILE, array( __CLASS__, 'on_deactivate' ) );
 		add_action( 'plugins_loaded', array( __CLASS__, 'on_plugins_loaded' ), 25 );
 
 		Installer::init();
@@ -25,9 +26,13 @@ final class Bootstrap {
 	}
 
 	public static function on_activate(): void {
+		Installer::remove_mu_plugin_loader();
 		Installer::full_bootstrap( true );
 		update_option( 'inyfinn_cursor_bridge_bootstrapped', true, false );
-		set_transient( 'inyfinn_cursor_bridge_skip_plugins_loaded_bootstrap', 1, MINUTE_IN_SECONDS );
+	}
+
+	public static function on_deactivate(): void {
+		Installer::remove_mu_plugin_loader();
 	}
 
 	public static function on_plugins_loaded(): void {
@@ -37,15 +42,8 @@ final class Bootstrap {
 			update_option( 'woocommerce_feature_mcp_integration_enabled', 'yes', false );
 		}
 
-		if ( get_transient( 'inyfinn_cursor_bridge_skip_plugins_loaded_bootstrap' ) ) {
-			delete_transient( 'inyfinn_cursor_bridge_skip_plugins_loaded_bootstrap' );
-			return;
-		}
-
-		if ( ! get_option( 'inyfinn_cursor_bridge_bootstrapped', false ) ) {
-			Installer::full_bootstrap( false );
-			update_option( 'inyfinn_cursor_bridge_bootstrapped', true, false );
-		}
+		// 1.5.x zostawiał mu-loader, który omijał przycisk Włącz — sprzątamy.
+		Installer::remove_mu_plugin_loader();
 	}
 }
 

@@ -167,8 +167,8 @@ final class Health {
 			'id'            => 'plugin_active',
 			'label'         => 'Wtyczka aktywna w WordPress',
 			'status'        => $ok ? 'ok' : 'error',
-			'message'       => $ok ? 'inyfinn-cursor-bridge-mcp w active_plugins' : 'Wtyczka nieaktywna — działa tylko mu-loader lub wcale',
-			'repair_action' => $ok ? null : 'activate_plugin',
+			'message'       => $ok ? 'inyfinn-cursor-bridge-mcp w active_plugins' : 'Nieaktywna — użyj przycisku Włącz (kod nie aktywuje sam z siebie)',
+			'repair_action' => null,
 		);
 	}
 
@@ -176,14 +176,16 @@ final class Health {
 	 * @return array<string, mixed>
 	 */
 	private static function check_mu_plugin_loader(): array {
-		$ok = Installer::mu_plugin_loader_present();
+		$present = Installer::mu_plugin_loader_present();
 
 		return array(
 			'id'            => 'mu_plugin_loader',
-			'label'         => 'MU-plugin loader',
-			'status'        => $ok ? 'ok' : 'error',
-			'message'       => $ok ? '000-inyfinn-cursor-bridge-mcp-loader.php' : 'Brak loadera w wp-content/mu-plugins/',
-			'repair_action' => $ok ? null : 'mu_plugin',
+			'label'         => 'MU-plugin loader (legacy)',
+			'status'        => $present ? 'error' : 'ok',
+			'message'       => $present
+				? 'Stary loader omija Włącz — kliknij Napraw, żeby usunąć'
+				: 'Brak — wtyczka startuje tylko po Włącz',
+			'repair_action' => $present ? 'mu_plugin' : null,
 		);
 	}
 

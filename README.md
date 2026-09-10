@@ -1,7 +1,7 @@
 # Inyfinn Cursor Bridge MCP
 
 **Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp  
-**Wersja:** 1.5.4  
+**Wersja:** 1.6.0  
 **Licencja:** GPL-2.0-or-later
 
 Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).
@@ -14,9 +14,9 @@ Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z w
 
 ## Co robi ta wtyczka?
 
-| Po aktywacji | Efekt |
+| Po **Włącz** | Efekt |
 |--------------|--------|
-| MU-plugin loader | Wtyczka ładuje się nawet po problemach z `active_plugins` |
+| Lista `active_plugins` | WordPress ładuje PHP wtyczki — bez mu-loadera i bez `activate_plugin()` z kodu |
 | Application Password | Automatyczne hasło „Cursor MCP (Inyfinn)” dla admina |
 | `cursor-setup.json` | Plik konfiguracyjny dla agenta Cursor (SFTP workspace) |
 | Bundle `.env` + `mcp.json` | DB z `wp-config`, MCP endpoint, brakujące pola SSH |
@@ -54,9 +54,9 @@ wp-content/plugins/inyfinn-cursor-bridge-mcp/
 
 ### Krok 2 — Aktywuj
 
-**WP Admin → Wtyczki → Aktywuj „Inyfinn Cursor Bridge MCP”**
+**WP Admin → Wtyczki → Włącz „Inyfinn Cursor Bridge MCP”**
 
-Auto-setup uruchamia się przy aktywacji (mu-plugin, hasło, setup file).
+Auto-setup (hasło, `cursor-setup.json`) uruchamia się **tylko** przy tym kliknięciu. Wtyczka nie aktywuje się sama z mu-pluginu ani z agenta.
 
 ### Krok 3 — Sprawdź diagnostykę
 

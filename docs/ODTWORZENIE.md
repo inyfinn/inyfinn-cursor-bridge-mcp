@@ -45,14 +45,15 @@ wp-content/plugins/inyfinn-cursor-bridge-mcp/
 
 Metody: ZIP w panelu WP, SFTP, lub `git clone` do `plugins/`.
 
-### Krok 3.2 — Aktywuj
+### Krok 3.2 — Włącz
 
-**WP Admin → Wtyczki → Aktywuj „Inyfinn Cursor Bridge MCP”**
+**WP Admin → Wtyczki → Włącz „Inyfinn Cursor Bridge MCP”**
 
-Auto-setup tworzy:
-- MU-plugin loader
+Auto-setup przy tym kliknięciu tworzy:
 - `wp-content/inyfinn-cursor-bridge/cursor-setup.json`
 - Application Password (jeśli możliwe)
+
+Nie instaluje mu-loadera. Leftover z 1.5.x jest kasowany.
 
 ### Krok 3.3 — Hasło aplikacji
 
@@ -258,6 +259,7 @@ W **Ustawienia → Cursor Bridge** uzupełnij:
 | 1.4.0 | Model uniwersalny: db-query przez wpdb |
 | 1.5.0 | `verify-connection` + panel testu |
 | 1.5.1 | Fix REST `/ping` (500) |
+| 1.6.0 | Włącz-only: bez mu-loadera, bez `activate_plugin()` z kodu |
 
 Zawsze instaluj **najnowszy release** z GitHub.
 
@@ -266,7 +268,7 @@ Zawsze instaluj **najnowszy release** z GitHub.
 ## 11. Szybka ściąga (1 strona)
 
 ```
-1. Wgraj wtyczkę → Aktywuj
+1. Wgraj wtyczkę → Włącz
 2. Cursor Bridge → wklej hasło aplikacji → Zapisz
 3. Test połączenia → 5× OK
 4. Cursor: mcp.json (jeden serwer wordpress-remote)

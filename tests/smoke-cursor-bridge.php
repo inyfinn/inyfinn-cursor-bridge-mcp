@@ -48,6 +48,10 @@ $status = \Inyfinn_Cursor_Bridge\Installer::get_status();
 smoke_assert( array_key_exists( 'mu_plugin_loader', $status ), 'get_status has mu_plugin_loader' );
 smoke_assert( array_key_exists( 'mcp_username', $status ), 'get_status has mcp_username' );
 
+$removed = \Inyfinn_Cursor_Bridge\Installer::remove_mu_plugin_loader();
+smoke_assert( ! empty( $removed['ok'] ), 'remove_mu_plugin_loader reports ok' );
+smoke_assert( ! \Inyfinn_Cursor_Bridge\Installer::mu_plugin_loader_present(), 'legacy mu-loader absent after remove' );
+
 // Abilities registered.
 if ( function_exists( 'wp_get_abilities' ) ) {
 	$abilities = wp_get_abilities();

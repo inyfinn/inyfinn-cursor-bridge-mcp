@@ -289,7 +289,7 @@ final class Abilities {
 			'cursor-bridge/repair',
 			array(
 				'label'               => 'Repair Component',
-				'description'         => 'Fix one component: activate_plugin, mu_plugin, app_password, setup_file, permalinks, conflicts, full_bootstrap.',
+				'description'         => 'Fix one component: mu_plugin (usuwa legacy loader), app_password, setup_file, permalinks, conflicts, full_bootstrap. activate_plugin nie woła WP activate — tylko Włącz w adminie.',
 				'category'            => 'cursor-bridge',
 				'input_schema'        => array(
 					'type'       => 'object',
@@ -414,7 +414,7 @@ final class Abilities {
 			'cursor-bridge/run-auto-setup',
 			array(
 				'label'               => 'Run Auto Setup',
-				'description'         => 'One-shot: mu-plugin loader, Application Password, cursor-setup.json, .env and mcp.json bundle. Call when user says: uruchom wtyczkę inyfinn-cursor-bridge-mcp.',
+				'description'         => 'One-shot po Włącz: Application Password, cursor-setup.json, .env and mcp.json bundle. Usuwa leftover mu-loader. Call when user says: uruchom wtyczkę inyfinn-cursor-bridge-mcp.',
 				'category'            => 'cursor-bridge',
 				'input_schema'        => array(
 					'type'       => 'object',

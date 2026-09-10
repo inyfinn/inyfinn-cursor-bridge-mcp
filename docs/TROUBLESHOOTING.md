@@ -15,7 +15,7 @@
 |------|-----------|---------|
 | WordPress 6.8+ | Abilities API | Zaktualizuj WordPress |
 | Wtyczka aktywna | W `active_plugins` | Przycisk Napraw → `activate_plugin` |
-| MU-plugin loader | Plik w mu-plugins | Napraw → kopiuje loader |
+| MU-plugin loader (legacy) | Plik w mu-plugins = błąd | Napraw → **usuwa** loader (1.6.0 ładuje się tylko po Włącz) |
 | Application Passwords | API WP dostępne | Włącz HTTPS; sprawdź filtry `wp_is_application_passwords_available` |
 | Application Password MCP | Hasło „Cursor MCP” | Napraw → tworzy hasło |
 | cursor-setup.json | Plik dla Cursora | Napraw → regeneruje |
@@ -93,8 +93,7 @@ Użyj:
 
 ## Wtyczka pokazuje active: false w list-plugins
 
-Uruchom **Napraw** przy „Wtyczka aktywna” lub auto-setup.  
-Od v1.2.0 `ensure_plugin_active()` dodaje wtyczkę do `active_plugins`.
+Od v1.6.0 kod **nie** dodaje wtyczki do `active_plugins`. Użyj przycisku **Włącz** na ekranie Wtyczki.
 
 ---
 

@@ -10,7 +10,7 @@ Baza = `cursor-bridge/db-query` (wpdb na serwerze). **NIE** zdalny mariadb MCP.
 
 ## Co było potrzebne na start projektu
 
-1. Wtyczka aktywna na serwerze
+1. Wtyczka **włączona** przyciskiem Włącz (nie mu-loader, nie `activate_plugin()` z kodu)
 2. Application Password dla usera MCP (np. inyfinn)
 3. Jeden serwer MCP w `~/.cursor/mcp.json` → `kubara.pl` endpoint
 4. Workspace SFTP `public_html` (opcjonalnie — pliki też przez MCP)
