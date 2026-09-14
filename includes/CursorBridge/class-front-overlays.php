@@ -23,19 +23,52 @@ final class Front_Overlays {
 	}
 
 	/**
-	 * @return array{djacc_compact:bool,form_min_seconds:int}
+	 * @return array{
+	 *   djacc_skin:bool,
+	 *   djacc_compact:bool,
+	 *   djacc_color_forest:string,
+	 *   djacc_color_lime:string,
+	 *   djacc_color_hover:string,
+	 *   djacc_color_ink:string,
+	 *   form_min_seconds:int
+	 * }
 	 */
 	public static function settings(): array {
 		$stored = get_option( self::OPTION, array() );
 		if ( ! is_array( $stored ) ) {
 			$stored = array();
 		}
-		return wp_parse_args(
-			$stored,
-			array(
-				'djacc_compact'     => true,
-				'form_min_seconds'   => 15,
-			)
+		$defaults = self::default_settings();
+		$parsed  = wp_parse_args( $stored, $defaults );
+		foreach ( array( 'djacc_color_forest', 'djacc_color_lime', 'djacc_color_hover', 'djacc_color_ink' ) as $key ) {
+			$parsed[ $key ] = self::sanitize_color_id( (string) $parsed[ $key ], (string) $defaults[ $key ] );
+		}
+		$parsed['djacc_skin']       = ! empty( $parsed['djacc_skin'] );
+		$parsed['djacc_compact']    = ! empty( $parsed['djacc_compact'] );
+		$parsed['form_min_seconds'] = (int) $parsed['form_min_seconds'];
+		return $parsed;
+	}
+
+	/**
+	 * @return array{
+	 *   djacc_skin:bool,
+	 *   djacc_compact:bool,
+	 *   djacc_color_forest:string,
+	 *   djacc_color_lime:string,
+	 *   djacc_color_hover:string,
+	 *   djacc_color_ink:string,
+	 *   form_min_seconds:int
+	 * }
+	 */
+	public static function default_settings(): array {
+		return array(
+			'djacc_skin'          => true,
+			'djacc_compact'       => true,
+			'djacc_color_forest'  => 'vamtam_accent_1',
+			'djacc_color_lime'    => 'vamtam_accent_2',
+			'djacc_color_hover'   => 'vamtam_accent_4',
+			'djacc_color_ink'     => 'vamtam_accent_5',
+			'form_min_seconds'    => 15,
 		);
 	}
 
@@ -47,13 +80,113 @@ final class Front_Overlays {
 		if ( $seconds > 120 ) {
 			$seconds = 120;
 		}
+		$defaults = self::default_settings();
 		update_option(
 			self::OPTION,
 			array(
-				'djacc_compact'   => ! empty( $_POST['front_djacc_compact'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing
-				'form_min_seconds' => $seconds,
+				'djacc_skin'          => ! empty( $_POST['front_djacc_skin'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				'djacc_compact'       => ! empty( $_POST['front_djacc_compact'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				'djacc_color_forest'  => self::sanitize_color_id( isset( $_POST['front_djacc_color_forest'] ) ? (string) wp_unslash( $_POST['front_djacc_color_forest'] ) : '', $defaults['djacc_color_forest'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				'djacc_color_lime'    => self::sanitize_color_id( isset( $_POST['front_djacc_color_lime'] ) ? (string) wp_unslash( $_POST['front_djacc_color_lime'] ) : '', $defaults['djacc_color_lime'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				'djacc_color_hover'   => self::sanitize_color_id( isset( $_POST['front_djacc_color_hover'] ) ? (string) wp_unslash( $_POST['front_djacc_color_hover'] ) : '', $defaults['djacc_color_hover'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				'djacc_color_ink'     => self::sanitize_color_id( isset( $_POST['front_djacc_color_ink'] ) ? (string) wp_unslash( $_POST['front_djacc_color_ink'] ) : '', $defaults['djacc_color_ink'] ), // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				'form_min_seconds'    => $seconds,
 			),
 			false
+		);
+	}
+
+	public static function sanitize_color_id( string $id, string $fallback ): string {
+		$id = strtolower( $id );
+		$id = (string) preg_replace( '/[^a-z0-9_]/', '', $id );
+		if ( '' === $id ) {
+			return $fallback;
+		}
+		if ( '' === $fallback ) {
+			return $id;
+		}
+		$allowed = self::kit_global_colors();
+		if ( isset( $allowed[ $id ] ) ) {
+			return $id;
+		}
+		return $fallback;
+	}
+
+	/**
+	 * Elementor Site Settings → Global Colors (system + custom).
+	 *
+	 * @return array<string, string> id => label
+	 */
+	public static function kit_global_colors(): array {
+		$out = array(
+			'vamtam_accent_1' => 'Accent 1 (las / primary)',
+			'vamtam_accent_2' => 'Accent 2 (wapno / accent)',
+			'vamtam_accent_3' => 'Accent 3',
+			'vamtam_accent_4' => 'Accent 4 (hover)',
+			'vamtam_accent_5' => 'Accent 5 (biel / ink)',
+		);
+		if ( ! class_exists( '\Elementor\Plugin' ) ) {
+			return $out;
+		}
+		try {
+			$kits = \Elementor\Plugin::$instance->kits_manager ?? null;
+			if ( ! is_object( $kits ) || ! method_exists( $kits, 'get_active_kit_for_frontend' ) ) {
+				return $out;
+			}
+			$kit = $kits->get_active_kit_for_frontend();
+			if ( ! is_object( $kit ) || ! method_exists( $kit, 'get_settings' ) ) {
+				return $out;
+			}
+			foreach ( array( 'system_colors', 'custom_colors' ) as $group ) {
+				$rows = $kit->get_settings( $group );
+				if ( ! is_array( $rows ) ) {
+					continue;
+				}
+				foreach ( $rows as $row ) {
+					if ( ! is_array( $row ) || empty( $row['_id'] ) ) {
+						continue;
+					}
+					$cid = (string) preg_replace( '/[^a-z0-9_]/', '', strtolower( (string) $row['_id'] ) );
+					if ( '' === $cid ) {
+						continue;
+					}
+					$title = isset( $row['title'] ) ? (string) $row['title'] : $cid;
+					$hex   = isset( $row['color'] ) ? (string) $row['color'] : '';
+					$out[ $cid ] = $hex ? ( $title . ' — ' . $hex ) : $title;
+				}
+			}
+		} catch ( \Throwable $e ) {
+			unset( $e );
+		}
+		return $out;
+	}
+
+	public static function color_select( string $name, string $current ): void {
+		echo '<select name="' . esc_attr( $name ) . '" id="' . esc_attr( $name ) . '">';
+		foreach ( self::kit_global_colors() as $id => $label ) {
+			printf(
+				'<option value="%1$s" %2$s>%3$s</option>',
+				esc_attr( $id ),
+				selected( $current, $id, false ),
+				esc_html( $label )
+			);
+		}
+		echo '</select>';
+	}
+
+	public static function css_global_var( string $id ): string {
+		$id = self::sanitize_color_id( $id, 'vamtam_accent_1' );
+		return 'var(--e-global-color-' . $id . ')';
+	}
+
+	public static function skin_custom_properties(): string {
+		$s = self::settings();
+		return sprintf(
+			'.djacc-popup{--inyfinn-djacc-forest:%1$s;--inyfinn-djacc-lime:%2$s;--inyfinn-djacc-hover:%3$s;--inyfinn-djacc-ink:%4$s;}',
+			self::css_global_var( (string) $s['djacc_color_forest'] ),
+			self::css_global_var( (string) $s['djacc_color_lime'] ),
+			self::css_global_var( (string) $s['djacc_color_hover'] ),
+			self::css_global_var( (string) $s['djacc_color_ink'] )
 		);
 	}
 
@@ -75,14 +208,21 @@ final class Front_Overlays {
 			return;
 		}
 		$s       = self::settings();
-		$ver     = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.6.2';
+		$ver     = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.6.6';
 		$base    = plugin_dir_url( INYFINN_CURSOR_BRIDGE_MCP_FILE ) . 'assets/front/';
 		$dir     = plugin_dir_path( INYFINN_CURSOR_BRIDGE_MCP_FILE ) . 'assets/front/';
+		$css     = $dir . 'djacc-compact.css';
+		$load_dj = ! empty( $s['djacc_skin'] ) || ! empty( $s['djacc_compact'] );
+
+		if ( $load_dj ) {
+			wp_enqueue_style( 'inyfinn-djacc-compact', $base . 'djacc-compact.css', array(), file_exists( $css ) ? (string) filemtime( $css ) : $ver );
+			if ( ! empty( $s['djacc_skin'] ) ) {
+				wp_add_inline_style( 'inyfinn-djacc-compact', self::skin_custom_properties() );
+			}
+		}
 
 		if ( ! empty( $s['djacc_compact'] ) ) {
-			$css = $dir . 'djacc-compact.css';
-			$js  = $dir . 'djacc-compact.js';
-			wp_enqueue_style( 'inyfinn-djacc-compact', $base . 'djacc-compact.css', array(), file_exists( $css ) ? (string) filemtime( $css ) : $ver );
+			$js = $dir . 'djacc-compact.js';
 			wp_enqueue_script( 'inyfinn-djacc-compact', $base . 'djacc-compact.js', array(), file_exists( $js ) ? (string) filemtime( $js ) : $ver, true );
 			wp_localize_script(
 				'inyfinn-djacc-compact',

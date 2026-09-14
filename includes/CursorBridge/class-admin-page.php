@@ -116,7 +116,7 @@ final class Admin_Page {
 			add_settings_error(
 				'inyfinn_cursor_bridge',
 				'front',
-				__( 'Nakładki frontu zapisane (antyspam formularzy + kompaktowe DJ Accessibility).', 'inyfinn-cursor-bridge-mcp' ),
+				__( 'Nakładki frontu zapisane (DJ Accessibility + antyspam formularzy).', 'inyfinn-cursor-bridge-mcp' ),
 				'success'
 			);
 			self::redirect_with_notices( self::admin_page_url() );
@@ -460,16 +460,45 @@ final class Admin_Page {
 				<?php wp_nonce_field( 'inyfinn_cursor_bridge_front' ); ?>
 				<h2><?php esc_html_e( 'Nakładki frontu (inne strony)', 'inyfinn-cursor-bridge-mcp' ); ?></h2>
 				<p class="description">
-					<?php esc_html_e( 'Te same przełączniki na każdej instalacji z tą wtyczką. Nie edytują szablonów DJ Accessibility — CSS/JS nakładka, więc update wtyczki DJ ich nie kasuje.', 'inyfinn-cursor-bridge-mcp' ); ?>
+					<?php esc_html_e( 'Nakładka CSS/JS — nie edytuje szablonów DJ Accessibility, więc update wtyczki DJ tego nie kasuje. Kolory DJ biorą się z kolorów globalnych Elementora (Site Settings → Global Colors). Zmiana heksa w Kicie automatycznie zmienia panel; tu mapujesz rolę → global.', 'inyfinn-cursor-bridge-mcp' ); ?>
 				</p>
 				<table class="form-table">
 					<tr>
 						<th><?php esc_html_e( 'DJ Accessibility', 'inyfinn-cursor-bridge-mcp' ); ?></th>
 						<td>
 							<label>
+								<input type="checkbox" name="front_djacc_skin" value="1" <?php checked( ! empty( $front['djacc_skin'] ) ); ?> />
+								<?php esc_html_e( 'Zawsze maluj panel DJ kolorami globalnymi Elementora (las / wapno / biel)', 'inyfinn-cursor-bridge-mcp' ); ?>
+							</label>
+							<br />
+							<label>
 								<input type="checkbox" name="front_djacc_compact" value="1" <?php checked( ! empty( $front['djacc_compact'] ) ); ?> />
 								<?php esc_html_e( 'Kompaktowy panel: ukryj tytuł, stopkę DJ-Extensions i schowaj dodatkowe przyciski pod „Rozwiń więcej funkcji”', 'inyfinn-cursor-bridge-mcp' ); ?>
 							</label>
+						</td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Kolory DJ ← globale Elementora', 'inyfinn-cursor-bridge-mcp' ); ?></th>
+						<td>
+							<p>
+								<label for="front_djacc_color_forest"><?php esc_html_e( 'Ciemny / las (panel, studzienki, ikona na wapnie)', 'inyfinn-cursor-bridge-mcp' ); ?></label><br />
+								<?php Front_Overlays::color_select( 'front_djacc_color_forest', (string) $front['djacc_color_forest'] ); ?>
+							</p>
+							<p>
+								<label for="front_djacc_color_lime"><?php esc_html_e( 'Jasny / wapno (FAB, X, suwak, aktywny stan)', 'inyfinn-cursor-bridge-mcp' ); ?></label><br />
+								<?php Front_Overlays::color_select( 'front_djacc_color_lime', (string) $front['djacc_color_lime'] ); ?>
+							</p>
+							<p>
+								<label for="front_djacc_color_hover"><?php esc_html_e( 'Hover (FAB / X / aktywny)', 'inyfinn-cursor-bridge-mcp' ); ?></label><br />
+								<?php Front_Overlays::color_select( 'front_djacc_color_hover', (string) $front['djacc_color_hover'] ); ?>
+							</p>
+							<p>
+								<label for="front_djacc_color_ink"><?php esc_html_e( 'Tekst i ikony na lesie', 'inyfinn-cursor-bridge-mcp' ); ?></label><br />
+								<?php Front_Overlays::color_select( 'front_djacc_color_ink', (string) $front['djacc_color_ink'] ); ?>
+							</p>
+							<p class="description">
+								<?php esc_html_e( 'Domyślnie: Accent 1 / 2 / 4 / 5. Żeby zmienić odcień lasu — edytuj Accent 1 w Kicie, nie wklejaj hexu tutaj.', 'inyfinn-cursor-bridge-mcp' ); ?>
+							</p>
 						</td>
 					</tr>
 					<tr>

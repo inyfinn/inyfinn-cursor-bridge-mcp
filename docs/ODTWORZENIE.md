@@ -262,6 +262,10 @@ W **Ustawienia → Cursor Bridge** uzupełnij:
 | 1.6.0 | Włącz-only: bez mu-loadera, bez `activate_plugin()` z kodu |
 | 1.6.1 | Plugin URI = GitHub; aktualizacje z GitHub Releases |
 | 1.6.2 | Nakładki frontu: antyspam Elementor (15 s) + kompakt DJ Accessibility |
+| 1.6.3 | DJ Accessibility: kolory Kita 8 (accent_1 / accent_2 / accent_5) |
+| 1.6.4 | Panel DJ ciemniejszy; „Rozwiń więcej funkcji” = accent_1 jak karta siedziby |
+| 1.6.5 | DJ: radius 24/9px; studzienki = accent_1, bez jasnego mixu |
+| 1.6.6 | DJ: kolory z globali Elementora (ustawienia Bridge, mapowanie roli) |
 
 Zawsze instaluj **najnowszy release** z GitHub.
 

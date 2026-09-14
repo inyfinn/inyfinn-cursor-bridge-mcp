@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.6.6 — 2026-09-14
+
+### Added
+- Ustawienia Bridge: DJ zawsze malowany kolorami **globalnymi Elementora** (las / wapno / hover / tekst). Zmiana koloru w Kicie = zmiana panelu; mapowanie roli → global w Ustawienia → Cursor Bridge.
+
+## 1.6.5 — 2026-09-14
+
+### Changed
+- DJ: panel radius 24px (nie 40px); studzienki suwaków/przycisków = `accent_1`, radius 9px — bez rozmytego mixu z bielą
+
+## 1.6.4 — 2026-09-14
+
+### Changed
+- Panel DJ ciemniejszy niż karta siedziby; przycisk „Rozwiń więcej funkcji” = `accent_1` (jak `.elementor-element-94cd37f`)
+
+## 1.6.3 — 2026-09-14
+
+### Changed
+- Panel DJ Accessibility: kolory Kita 8 — charcoal → `accent_1`, biel → `accent_5`, niebieski FAB/close/slider/active → `accent_2` (hover `accent_4`)
+
 ## 1.6.2 — 2026-09-14
 
 ### Added

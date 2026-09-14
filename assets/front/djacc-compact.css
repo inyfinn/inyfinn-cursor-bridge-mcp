@@ -1,20 +1,38 @@
 /**
- * Compact DJ Accessibility popup. Overlay-only — does not touch page canvas.
- * Hide vendor chrome (title + footer) and collapse extra toggles.
+ * Compact layout + kit-mapped skin for DJ Accessibility.
+ * Overlay-only — does not edit dj-accessibility templates.
+ *
+ * Colour tokens come from Bridge settings → Elementor global CSS vars
+ * (--inyfinn-djacc-*), injected in Front_Overlays::enqueue().
+ * Change a global in Elementor Site Settings → DJ follows.
  */
 
-.djacc-popup .djacc__header .djacc__title {
+.djacc-popup {
+	--inyfinn-djacc-forest: var(--e-global-color-vamtam_accent_1);
+	--inyfinn-djacc-lime: var(--e-global-color-vamtam_accent_2);
+	--inyfinn-djacc-hover: var(--e-global-color-vamtam_accent_4);
+	--inyfinn-djacc-ink: var(--e-global-color-vamtam_accent_5);
+	color: var(--inyfinn-djacc-ink);
+}
+
+.djacc-popup .djacc__panel.inyfinn-djacc--compact .djacc__header .djacc__title {
 	display: none !important;
 }
 
-.djacc-popup .djacc__footer,
-.djacc-popup .djacc__footer-links,
-.djacc-popup .djacc__footer-logo {
+.djacc-popup .djacc__panel.inyfinn-djacc--compact .djacc__footer,
+.djacc-popup .djacc__panel.inyfinn-djacc--compact .djacc__footer-links,
+.djacc-popup .djacc__panel.inyfinn-djacc--compact .djacc__footer-logo {
 	display: none !important;
+}
+
+.djacc-popup .djacc__panel {
+	background: color-mix(in srgb, var(--inyfinn-djacc-forest) 62%, black) !important;
+	border-radius: 24px !important;
+	color: var(--inyfinn-djacc-ink) !important;
+	width: min(360px, calc(100vw - 24px)) !important;
 }
 
 .djacc-popup .djacc__panel.inyfinn-djacc--compact {
-	width: min(360px, calc(100vw - 24px));
 	max-height: min(78vh, 520px) !important;
 	padding-bottom: 12px;
 }
@@ -38,10 +56,91 @@
 	display: none !important;
 }
 
+.djacc-popup .djacc__btn,
+.djacc-popup .djacc__arrows {
+	background: var(--inyfinn-djacc-forest) !important;
+	border-color: color-mix(in srgb, var(--inyfinn-djacc-ink) 12%, transparent) !important;
+	border-radius: 9px !important;
+	color: var(--inyfinn-djacc-ink) !important;
+}
+
 .djacc-popup .djacc__btn {
 	min-height: 44px;
 	height: auto;
 	padding: 8px 12px;
+}
+
+.djacc-popup .djacc__arrows:hover,
+.djacc-popup .djacc__btn:hover {
+	border-color: var(--inyfinn-djacc-lime) !important;
+}
+
+.djacc-popup .djacc__reset:hover {
+	background: color-mix(in srgb, var(--inyfinn-djacc-forest) 80%, var(--inyfinn-djacc-ink) 20%) !important;
+	border-color: color-mix(in srgb, var(--inyfinn-djacc-ink) 16%, transparent) !important;
+}
+
+.djacc-popup .djacc__openbtn--default,
+.djacc-popup .djacc__close,
+.djacc-popup .djacc__btn--active {
+	background: var(--inyfinn-djacc-lime) !important;
+	border-color: var(--inyfinn-djacc-lime) !important;
+	color: var(--inyfinn-djacc-forest) !important;
+}
+
+.djacc-popup .djacc__openbtn--default svg [stroke],
+.djacc-popup .djacc__close svg [stroke],
+.djacc-popup .djacc__btn--active svg [stroke] {
+	stroke: var(--inyfinn-djacc-forest) !important;
+}
+
+.djacc-popup .djacc__openbtn--default svg [fill]:not([fill="none"]),
+.djacc-popup .djacc__close svg [fill]:not([fill="none"]),
+.djacc-popup .djacc__btn--active svg [fill]:not([fill="none"]) {
+	fill: var(--inyfinn-djacc-forest) !important;
+}
+
+.djacc-popup .djacc__openbtn--default:hover,
+.djacc-popup .djacc__close:hover,
+.djacc-popup .djacc__btn--active:hover {
+	background: var(--inyfinn-djacc-hover) !important;
+	border-color: var(--inyfinn-djacc-hover) !important;
+	color: var(--inyfinn-djacc-forest) !important;
+}
+
+.djacc-popup .djacc__bar {
+	background: color-mix(in srgb, var(--inyfinn-djacc-forest) 78%, black) !important;
+}
+
+.djacc-popup .djacc__bar:before,
+.djacc-popup .djacc__bar:after {
+	background: var(--inyfinn-djacc-lime) !important;
+}
+
+.djacc-popup .djacc__dec,
+.djacc-popup .djacc__inc {
+	border-left-color: color-mix(in srgb, var(--inyfinn-djacc-ink) 16%, transparent) !important;
+	color: var(--inyfinn-djacc-ink) !important;
+}
+
+.djacc-popup svg [fill="#fff"],
+.djacc-popup svg [fill="#FFF"] {
+	fill: currentColor !important;
+}
+
+.djacc-popup svg [stroke="#fff"],
+.djacc-popup svg [stroke="#FFF"] {
+	stroke: currentColor !important;
+}
+
+.djacc-popup .djacc__dec:hover svg [fill^="#"],
+.djacc-popup .djacc__inc:hover svg [fill^="#"] {
+	fill: var(--inyfinn-djacc-lime) !important;
+}
+
+.djacc-popup .djacc__dec:hover svg [stroke^="#"],
+.djacc-popup .djacc__inc:hover svg [stroke^="#"] {
+	stroke: var(--inyfinn-djacc-lime) !important;
 }
 
 .djacc-popup .inyfinn-djacc-more {
@@ -53,6 +152,8 @@
 	width: 100%;
 	justify-content: center;
 	text-align: center;
+	border-radius: 9px !important;
+	background: var(--inyfinn-djacc-forest) !important;
 }
 
 .djacc-popup .djacc__item--full {
