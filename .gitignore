@@ -5,3 +5,20 @@ Thumbs.db
 .vscode/
 node_modules/
 *.zip
+
+# --- secrets-lock (inyfinn) ---
+.env
+.env.*
+!.env.example
+!.env.sample
+.ssh/
+id_rsa
+id_ed25519
+id_ecdsa
+id_dsa
+*.ppk
+*.pem
+*.p12
+*.pfx
+cloud-agent-nas
+# --- end secrets-lock ---
