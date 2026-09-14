@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.2 — 2026-09-14
+
+### Added
+- **Nakładki frontu** (`Front_Overlays`) — Ustawienia → Cursor Bridge:
+  - kompaktowy panel DJ Accessibility (ukryty tytuł i stopka DJ-Extensions, „Rozwiń więcej funkcji”)
+  - antyspam Elementor: odrzucenie submitu szybszego niż N sekund od otwarcia strony + komunikat z `{email}` (To formularza), nie ogólne „spróbuj ponownie”
+
 ## 1.6.1 — 2026-09-10
 
 ### Added

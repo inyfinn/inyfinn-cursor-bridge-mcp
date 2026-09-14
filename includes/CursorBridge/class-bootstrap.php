@@ -22,6 +22,7 @@ final class Bootstrap {
 		Installer::cleanup_duplicate_installations();
 		Local_Queue::init();
 		Admin_Page::init();
+		Front_Overlays::init();
 		Abilities::register_hooks();
 		GitHub_Updater::init();
 	}

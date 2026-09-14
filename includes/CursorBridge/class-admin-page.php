@@ -107,6 +107,21 @@ final class Admin_Page {
 			self::redirect_with_notices( self::admin_page_url() );
 		}
 
+		if ( isset( $_POST['inyfinn_cursor_bridge_front_save'] ) ) {
+			if ( ! self::verify_nonce( 'inyfinn_cursor_bridge_front' ) ) {
+				self::nonce_failed_notice();
+				return;
+			}
+			Front_Overlays::save_from_post();
+			add_settings_error(
+				'inyfinn_cursor_bridge',
+				'front',
+				__( 'Nakładki frontu zapisane (antyspam formularzy + kompaktowe DJ Accessibility).', 'inyfinn-cursor-bridge-mcp' ),
+				'success'
+			);
+			self::redirect_with_notices( self::admin_page_url() );
+		}
+
 		if ( isset( $_POST['inyfinn_bootstrap'] ) ) {
 			if ( ! self::verify_nonce( 'inyfinn_bootstrap' ) ) {
 				self::nonce_failed_notice();
@@ -280,6 +295,7 @@ final class Admin_Page {
 		$hardening     = Hardening::status();
 		$page_url      = self::admin_page_url();
 		$verify        = Connection_Verify::run();
+		$front         = Front_Overlays::settings();
 
 		settings_errors( 'inyfinn_cursor_bridge' );
 		?>
@@ -440,6 +456,35 @@ final class Admin_Page {
 				</ol>
 			</div>
 
+			<form method="post" action="<?php echo esc_url( $page_url ); ?>" style="margin-top:2em">
+				<?php wp_nonce_field( 'inyfinn_cursor_bridge_front' ); ?>
+				<h2><?php esc_html_e( 'Nakładki frontu (inne strony)', 'inyfinn-cursor-bridge-mcp' ); ?></h2>
+				<p class="description">
+					<?php esc_html_e( 'Te same przełączniki na każdej instalacji z tą wtyczką. Nie edytują szablonów DJ Accessibility — CSS/JS nakładka, więc update wtyczki DJ ich nie kasuje.', 'inyfinn-cursor-bridge-mcp' ); ?>
+				</p>
+				<table class="form-table">
+					<tr>
+						<th><?php esc_html_e( 'DJ Accessibility', 'inyfinn-cursor-bridge-mcp' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="front_djacc_compact" value="1" <?php checked( ! empty( $front['djacc_compact'] ) ); ?> />
+								<?php esc_html_e( 'Kompaktowy panel: ukryj tytuł, stopkę DJ-Extensions i schowaj dodatkowe przyciski pod „Rozwiń więcej funkcji”', 'inyfinn-cursor-bridge-mcp' ); ?>
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="front_form_min_seconds"><?php esc_html_e( 'Antyspam formularzy Elementor', 'inyfinn-cursor-bridge-mcp' ); ?></label></th>
+						<td>
+							<input name="front_form_min_seconds" id="front_form_min_seconds" type="number" min="0" max="120" value="<?php echo esc_attr( (string) (int) $front['form_min_seconds'] ); ?>" />
+							<?php esc_html_e( 'sekund od otwarcia strony. 0 = wyłącz timer. Submit szybszy (albo bez znacznika) = spam; komunikat z adresem z pola To formularza, nie ogólne „spróbuj ponownie”.', 'inyfinn-cursor-bridge-mcp' ); ?>
+						</td>
+					</tr>
+				</table>
+				<p class="submit">
+					<button type="submit" name="inyfinn_cursor_bridge_front_save" class="button button-primary"><?php esc_html_e( 'Zapisz nakładki frontu', 'inyfinn-cursor-bridge-mcp' ); ?></button>
+				</p>
+			</form>
+
 			<?php if ( ! empty( $bundle['missing_fields'] ) ) : ?>
 				<div class="notice notice-warning inline" style="margin-top:1em"><p>
 					<?php esc_html_e( 'Cursor zapyta o brakujące pola w .env:', 'inyfinn-cursor-bridge-mcp' ); ?>
@@ -570,6 +615,7 @@ final class Admin_Page {
 
 		$post_keys = array(
 			'inyfinn_cursor_bridge_save',
+			'inyfinn_cursor_bridge_front_save',
 			'inyfinn_apply_hardening',
 			'inyfinn_bootstrap',
 			'inyfinn_repair',

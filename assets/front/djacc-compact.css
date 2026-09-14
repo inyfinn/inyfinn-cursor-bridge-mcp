@@ -1,0 +1,60 @@
+/**
+ * Compact DJ Accessibility popup. Overlay-only — does not touch page canvas.
+ * Hide vendor chrome (title + footer) and collapse extra toggles.
+ */
+
+.djacc-popup .djacc__header .djacc__title {
+	display: none !important;
+}
+
+.djacc-popup .djacc__footer,
+.djacc-popup .djacc__footer-links,
+.djacc-popup .djacc__footer-logo {
+	display: none !important;
+}
+
+.djacc-popup .djacc__panel.inyfinn-djacc--compact {
+	width: min(360px, calc(100vw - 24px));
+	max-height: min(78vh, 520px) !important;
+	padding-bottom: 12px;
+}
+
+.djacc-popup .djacc__panel.inyfinn-djacc--compact.inyfinn-djacc--expanded {
+	max-height: min(90vh, 680px) !important;
+}
+
+.djacc-popup .djacc__header {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+	min-height: 40px;
+}
+
+.djacc-popup .djacc__panel.inyfinn-djacc--compact:not(.inyfinn-djacc--expanded)
+	> .djacc__list
+	> li.djacc__item:not(.djacc__item--full):not(.inyfinn-djacc-more) {
+	display: none !important;
+}
+
+.djacc-popup .djacc__btn {
+	min-height: 44px;
+	height: auto;
+	padding: 8px 12px;
+}
+
+.djacc-popup .inyfinn-djacc-more {
+	list-style: none;
+	width: 100%;
+}
+
+.djacc-popup .inyfinn-djacc-more__btn {
+	width: 100%;
+	justify-content: center;
+	text-align: center;
+}
+
+.djacc-popup .djacc__item--full {
+	margin-top: 4px;
+}

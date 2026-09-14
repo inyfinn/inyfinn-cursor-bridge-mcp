@@ -261,6 +261,7 @@ W **Ustawienia → Cursor Bridge** uzupełnij:
 | 1.5.1 | Fix REST `/ping` (500) |
 | 1.6.0 | Włącz-only: bez mu-loadera, bez `activate_plugin()` z kodu |
 | 1.6.1 | Plugin URI = GitHub; aktualizacje z GitHub Releases |
+| 1.6.2 | Nakładki frontu: antyspam Elementor (15 s) + kompakt DJ Accessibility |
 
 Zawsze instaluj **najnowszy release** z GitHub.
 
