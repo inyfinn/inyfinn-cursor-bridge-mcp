@@ -454,8 +454,13 @@ final class Elementor_Editor {
 	}
 
 	private static function backup( int $post_id, string $raw ): string {
-		$key = self::BACKUP_PREFIX . gmdate( 'Ymd_His' );
-		update_post_meta( $post_id, $key, wp_slash( $raw ) );
+		// Several writes in one second must not overwrite each other's backup.
+		$base = self::BACKUP_PREFIX . gmdate( 'Ymd_His' );
+		$key  = $base;
+		for ( $n = 2; metadata_exists( 'post', $post_id, $key ); $n++ ) {
+			$key = $base . '_' . $n;
+		}
+		add_post_meta( $post_id, $key, wp_slash( $raw ) );
 		foreach ( array_slice( self::backup_keys( $post_id ), self::MAX_BACKUPS ) as $old ) {
 			delete_post_meta( $post_id, $old );
 		}
