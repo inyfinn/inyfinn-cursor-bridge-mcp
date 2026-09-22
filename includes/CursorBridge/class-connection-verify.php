@@ -62,9 +62,33 @@ final class Connection_Verify {
 				'db_query'   => rest_url( 'cursor-bridge/v1/db-query' ),
 			),
 			'why_not_remote_mysql' => 'Baza działa przez wpdb na serwerze (jak Better Search Replace). Zdalny port 3306 z Twojego IP jest blokowany przez hosting — to normalne.',
+			'next_steps'           => self::next_steps( $layers ),
 			'rest_firewall'        => Rest_Firewall_Diagnostics::report(),
 			'timestamp'       => gmdate( 'c' ),
 		);
+	}
+
+	/**
+	 * One concrete action per failed layer, so an agent knows what to call next.
+	 *
+	 * @param array<string, bool> $layers
+	 * @return list<string>
+	 */
+	private static function next_steps( array $layers ): array {
+		$fixes = array(
+			'wordpress'   => 'WordPress itself is not answering — check the site in a browser and the PHP error log.',
+			'database'    => 'Call cursor-bridge/db-info; wpdb errors usually mean wrong DB credentials in wp-config.php.',
+			'files'       => 'wp-content is not writable — call cursor-bridge/repair {action:"setup_directory"} or fix permissions in the hosting panel.',
+			'mcp_rest'    => 'MCP route missing — call cursor-bridge/repair {action:"permalinks"}; if REST answers 403, read rest_firewall (Wordfence / hosting WAF).',
+			'credentials' => 'No application password stored — call cursor-bridge/run-auto-setup, or paste one in Settings → Cursor Bridge.',
+		);
+		$steps = array();
+		foreach ( $layers as $layer => $ok ) {
+			if ( ! $ok && isset( $fixes[ $layer ] ) ) {
+				$steps[] = $fixes[ $layer ];
+			}
+		}
+		return $steps ? $steps : array( 'Ready. Read cursor-bridge/get-agent-playbook, then find-content / elementor-outline to start editing.' );
 	}
 
 	/**

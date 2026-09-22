@@ -89,7 +89,8 @@ final class Db_Query {
 	public static function run( string $sql ): array {
 		global $wpdb;
 
-		$sql = trim( $sql );
+		// {prefix} lets agents write portable SQL without guessing wp_ vs a custom prefix.
+		$sql = str_replace( '{prefix}', $wpdb->prefix, trim( $sql ) );
 		if ( '' === $sql ) {
 			return array(
 				'ok'      => false,
@@ -104,19 +105,28 @@ final class Db_Query {
 			);
 		}
 
-		if ( preg_match( '/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|GRANT|REVOKE)\b/i', $sql ) ) {
+		// Check keywords outside string literals, so LIKE '%update%' is allowed.
+		$code = preg_replace( '/\'(?:[^\'\\\\]|\\\\.)*\'|"(?:[^"\\\\]|\\\\.)*"/s', "''", $sql );
+		if ( ! is_string( $code ) || preg_match( '/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|GRANT|REVOKE|OUTFILE|DUMPFILE)\b|;\s*\S/i', $code ) ) {
 			return array(
 				'ok'      => false,
-				'message' => 'Destructive or write statements are blocked.',
+				'message' => 'Destructive or write statements are blocked (one read-only statement per call).',
 			);
 		}
 
-		$rows = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$wpdb->last_error = '';
+		$rows             = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 
-		if ( null === $rows && ! empty( $wpdb->last_error ) ) {
+		// get_results() returns an empty array on SQL errors too — check last_error, not the return value.
+		if ( '' !== $wpdb->last_error ) {
+			$message = $wpdb->last_error;
+			if ( false !== stripos( $message, "doesn't exist" ) ) {
+				$message .= ' — table prefix on this site is `' . $wpdb->prefix . '`; write {prefix}posts instead of wp_posts.';
+			}
 			return array(
-				'ok'      => false,
-				'message' => $wpdb->last_error,
+				'ok'           => false,
+				'message'      => $message,
+				'table_prefix' => $wpdb->prefix,
 			);
 		}
 

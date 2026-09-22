@@ -61,14 +61,47 @@ final class Front_Overlays {
 	 * }
 	 */
 	public static function default_settings(): array {
+		// Opt-in: the bridge is generic, these front-end tweaks belong to sites that ask for them.
 		return array(
-			'djacc_skin'          => true,
-			'djacc_compact'       => true,
+			'djacc_skin'          => false,
+			'djacc_compact'       => false,
 			'djacc_color_forest'  => 'vamtam_accent_1',
 			'djacc_color_lime'    => 'vamtam_accent_2',
 			'djacc_color_hover'   => 'vamtam_accent_4',
 			'djacc_color_ink'     => 'vamtam_accent_5',
-			'form_min_seconds'    => 15,
+			'form_min_seconds'    => 0,
+		);
+	}
+
+	public static function dj_accessibility_active(): bool {
+		foreach ( (array) get_option( 'active_plugins', array() ) as $plugin ) {
+			if ( 0 === strpos( (string) $plugin, 'dj-accessibility' ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Sites that ran 1.6.2–1.6.6 got these features on by default without a stored
+	 * option. Keep them on there, so the switch to opt-in changes nothing.
+	 */
+	public static function preserve_legacy_defaults(): void {
+		if ( false !== get_option( self::OPTION, false ) || ! get_option( 'inyfinn_cursor_bridge_last_bootstrap' ) || ! self::dj_accessibility_active() ) {
+			return;
+		}
+		// ponytail: DJ Accessibility active = proxy for "site used 1.6.2+ overlays"; exact past version is not recorded.
+		update_option(
+			self::OPTION,
+			array_merge(
+				self::default_settings(),
+				array(
+					'djacc_skin'       => true,
+					'djacc_compact'    => true,
+					'form_min_seconds' => 15,
+				)
+			),
+			false
 		);
 	}
 
@@ -76,7 +109,7 @@ final class Front_Overlays {
 	 * @return void
 	 */
 	public static function save_from_post(): void {
-		$seconds = isset( $_POST['front_form_min_seconds'] ) ? absint( wp_unslash( $_POST['front_form_min_seconds'] ) ) : 15; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$seconds = isset( $_POST['front_form_min_seconds'] ) ? absint( wp_unslash( $_POST['front_form_min_seconds'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		if ( $seconds > 120 ) {
 			$seconds = 120;
 		}
@@ -208,11 +241,11 @@ final class Front_Overlays {
 			return;
 		}
 		$s       = self::settings();
-		$ver     = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.6.7';
+		$ver     = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.7.0';
 		$base    = plugin_dir_url( INYFINN_CURSOR_BRIDGE_MCP_FILE ) . 'assets/front/';
 		$dir     = plugin_dir_path( INYFINN_CURSOR_BRIDGE_MCP_FILE ) . 'assets/front/';
 		$css     = $dir . 'djacc-compact.css';
-		$load_dj = ! empty( $s['djacc_skin'] ) || ! empty( $s['djacc_compact'] );
+		$load_dj = ( ! empty( $s['djacc_skin'] ) || ! empty( $s['djacc_compact'] ) ) && self::dj_accessibility_active();
 
 		if ( $load_dj ) {
 			wp_enqueue_style( 'inyfinn-djacc-compact', $base . 'djacc-compact.css', array(), file_exists( $css ) ? (string) filemtime( $css ) : $ver );
@@ -221,7 +254,7 @@ final class Front_Overlays {
 			}
 		}
 
-		if ( ! empty( $s['djacc_compact'] ) ) {
+		if ( $load_dj && ! empty( $s['djacc_compact'] ) ) {
 			$js = $dir . 'djacc-compact.js';
 			wp_enqueue_script( 'inyfinn-djacc-compact', $base . 'djacc-compact.js', array(), file_exists( $js ) ? (string) filemtime( $js ) : $ver, true );
 			wp_localize_script(

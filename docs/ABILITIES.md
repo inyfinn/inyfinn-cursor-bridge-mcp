@@ -4,6 +4,30 @@ Endpoint REST MCP: `/wp-json/mcp/mcp-adapter-default-server`
 
 Wszystkie abilities mają prefix `cursor-bridge/`.
 
+Agent dostaje skrót tej listy automatycznie w polu `instructions` odpowiedzi MCP `initialize` (fakty o stronie + kolejność pracy). Pełna wersja: `cursor-bridge/get-agent-playbook`.
+
+## Edycja treści i Elementora (1.7.0)
+
+| Ability | Wejście | Do czego |
+|---------|---------|----------|
+| `get-agent-playbook` | — | Fakty o stronie, workflowy, zasady. Czytać najpierw. |
+| `find-content` | `text`, `limit` | Gdzie leży widoczny tekst: element Elementora (`post_id`, `element_id`, `setting`), post_content, meta, opcje, pliki motywu potomnego / mu-plugins. |
+| `elementor-outline` | `post_id` | Płaska lista elementów strony: id, typ, głębokość, rodzic, podgląd tekstu, `hidden_on`. |
+| `elementor-get-element` | `post_id`, `element_id` | Pełne ustawienia jednego elementu. |
+| `elementor-patch-element` | `post_id`, `element_id`, `settings`, `unset`, `dry_run` | Zmiana ustawień jednego elementu. Każdy klucz zastępuje całą wartość. Odmowa dla rewizji, kopia, weryfikacja, cache. |
+| `elementor-list-backups` | `post_id` | 5 ostatnich kopii sprzed zapisów mostu. |
+| `elementor-restore-backup` | `post_id`, `backup_key` | Cofnięcie zapisu (bieżący stan też idzie do kopii). |
+| `purge-caches` | — | Wszystkie warstwy cache strony (bez CDN / hostingu). |
+
+Przykład — ukrycie sekcji na telefonie zamiast kasowania:
+
+```json
+{ "ability_name": "cursor-bridge/elementor-patch-element",
+  "parameters": { "post_id": 5937, "element_id": "3f2a9c1", "settings": { "hide_mobile": "hidden-mobile" }, "dry_run": true } }
+```
+
+`db-query`: `{prefix}` zamienia się na prefiks tabel (`SELECT ID FROM {prefix}posts`). Błąd SQL = `ok:false` z komunikatem.
+
 ---
 
 ## Diagnostyka i setup

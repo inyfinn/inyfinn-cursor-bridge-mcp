@@ -45,7 +45,10 @@ class DefaultServerFactory {
 			'server_route_namespace' => 'mcp',
 			'server_route'           => 'mcp-adapter-default-server',
 			'server_name'            => 'Inyfinn Cursor Bridge MCP',
-			'server_description'     => 'Inyfinn fork MCP Adapter — abilities discovery, Cursor bridge tools, WooCommerce',
+			// Sent as MCP `instructions` on initialize — every client shows it to its agent on connect.
+			'server_description'     => class_exists( \Inyfinn_Cursor_Bridge\Agent_Playbook::class )
+				? \Inyfinn_Cursor_Bridge\Agent_Playbook::instructions()
+				: 'Inyfinn fork MCP Adapter — abilities discovery, Cursor bridge tools, WooCommerce',
 			'server_version'         => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : 'v1.0.0',
 			'mcp_transports'         => array( HttpTransport::class ),
 			'error_handler'          => ErrorLogMcpErrorHandler::class,

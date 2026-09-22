@@ -1,5 +1,9 @@
 # Inyfinn Cursor Bridge MCP — instrukcja dla Cursor Agent
 
+## Od 1.7.0: agent dostaje instrukcję sam
+
+Po połączeniu z MCP agent widzi w `instructions` fakty o stronie (prefiks tabel, motyw, builder, cache) i kolejność pracy. Szczegóły: `cursor-bridge/get-agent-playbook`. Edycja: `find-content` → `elementor-outline` → `elementor-get-element` → `elementor-patch-element` (`dry_run` najpierw) → `purge-caches` → zrzut strony. Cofnięcie: `elementor-restore-backup`.
+
 ## Jak user sprawdza, że masz dostęp do bazy?
 
 1. **Panel WP:** Ustawienia → Cursor Bridge → „Test połączenia” — wszystkie ✓

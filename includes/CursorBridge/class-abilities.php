@@ -117,6 +117,7 @@ final class Abilities {
 		self::register_file_abilities();
 		self::register_db_abilities();
 		self::register_woocommerce_abilities();
+		self::register_editing_abilities();
 	}
 
 	/**
@@ -642,16 +643,10 @@ final class Abilities {
 			'cursor-bridge/flush-caches',
 			array(
 				'label'               => 'Flush Caches',
-				'description'         => 'Flush object cache and WooCommerce transients.',
+				'description'         => 'Alias of purge-caches (kept for older agents).',
 				'category'            => 'cursor-bridge',
 				'output_schema'       => array( 'type' => 'object' ),
-				'execute_callback'    => static function (): array {
-					wp_cache_flush();
-					if ( function_exists( 'wc_delete_product_transients' ) ) {
-						wc_delete_product_transients();
-					}
-					return array( 'flushed' => true );
-				},
+				'execute_callback'    => static fn(): array => Elementor_Editor::purge_all(),
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta( false ),
 			)
@@ -857,14 +852,14 @@ final class Abilities {
 			'cursor-bridge/db-query',
 			array(
 				'label'               => 'Read-only DB Query',
-				'description'         => 'SELECT/SHOW/DESCRIBE/EXPLAIN via wpdb on server (like Better Search Replace DB access).',
+				'description'         => 'Read-only SQL (SELECT/SHOW/DESCRIBE/EXPLAIN, one statement) via wpdb on the server. Write {prefix} for the table prefix, e.g. SELECT ID, post_title FROM {prefix}posts. SQL errors come back as ok:false with the message.',
 				'category'            => 'cursor-bridge',
 				'input_schema'        => array(
 					'type'       => 'object',
 					'properties' => array(
 						'sql' => array(
 							'type'        => 'string',
-							'description' => 'Read-only SQL statement.',
+							'description' => 'Read-only SQL statement; {prefix} is replaced with the table prefix.',
 						),
 					),
 					'required'   => array( 'sql' ),
@@ -883,7 +878,7 @@ final class Abilities {
 			'cursor-bridge/update-post-meta',
 			array(
 				'label'               => 'Update Post Meta (safe)',
-				'description'         => 'Targeted str_replace on one post meta key. Validates Elementor JSON before write.',
+				'description'         => 'Targeted str_replace on one post meta key. For _elementor_data prefer elementor-patch-element; this path also refuses revisions, backs up, verifies and purges cache.',
 				'category'            => 'cursor-bridge',
 				'input_schema'        => array(
 					'type'       => 'object',
@@ -901,7 +896,186 @@ final class Abilities {
 					return Local_Queue::run_replace_post_meta( $input );
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta( false ),
+			)
+		);
+	}
+
+	private static function register_editing_abilities(): void {
+		$can_edit = static fn() => current_user_can( 'manage_options' );
+		$post_id  = array( 'type' => 'integer', 'description' => 'Post/page ID that holds the Elementor data (not a revision).' );
+		$el_id    = array( 'type' => 'string', 'description' => 'Elementor element id, e.g. "3f2a9c1" — from elementor-outline or find-content.' );
+
+		wp_register_ability(
+			'cursor-bridge/get-agent-playbook',
+			array(
+				'label'               => 'Agent Playbook',
+				'description'         => 'READ THIS FIRST. Site facts (table prefix, theme, builder, caches) plus the workflows and rules for editing this site safely through the bridge.',
+				'category'            => 'cursor-bridge',
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static fn(): array => Agent_Playbook::full(),
+				'permission_callback' => $can_edit,
 				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/find-content',
+			array(
+				'label'               => 'Find Content Source',
+				'description'         => 'Where does this visible text live? Searches Elementor elements (returns post_id + element_id + setting), post_content, other post meta, options and files of the active theme and mu-plugins. Use before changing any text.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'text'  => array( 'type' => 'string', 'description' => 'Exact words as shown on the page (min 3 characters).' ),
+						'limit' => array( 'type' => 'integer', 'default' => 20, 'minimum' => 1, 'maximum' => 50 ),
+					),
+					'required'   => array( 'text' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Elementor_Editor::find_content( (string) ( $input['text'] ?? '' ), (int) ( $input['limit'] ?? 20 ) );
+				},
+				'permission_callback' => $can_edit,
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/elementor-outline',
+			array(
+				'label'               => 'Elementor Outline',
+				'description'         => 'Tree of one Elementor page as a flat list: element id, type, depth, parent, text preview, hidden_on, CSS id/classes. Start here before editing a page.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array( 'post_id' => $post_id ),
+					'required'   => array( 'post_id' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Elementor_Editor::outline( (int) ( $input['post_id'] ?? 0 ) );
+				},
+				'permission_callback' => $can_edit,
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/elementor-get-element',
+			array(
+				'label'               => 'Elementor Get Element',
+				'description'         => 'Full settings of one Elementor element (children listed by id only). Read before patching to see the exact keys and value shapes.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'post_id'    => $post_id,
+						'element_id' => $el_id,
+					),
+					'required'   => array( 'post_id', 'element_id' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Elementor_Editor::get_element( (int) ( $input['post_id'] ?? 0 ), (string) ( $input['element_id'] ?? '' ) );
+				},
+				'permission_callback' => $can_edit,
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/elementor-patch-element',
+			array(
+				'label'               => 'Elementor Patch Element',
+				'description'         => 'Change settings of one Elementor element safely: refuses revisions, backs up the page, writes valid JSON, re-reads to verify, refuses a >20% size drop, purges element cache + post CSS + page cache. Each key in settings replaces its whole value (send full objects for dimensions/typography). Hide instead of delete: hide_desktop/hide_tablet/hide_mobile = "hidden-desktop"/"hidden-tablet"/"hidden-mobile". Try dry_run:true first.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'post_id'    => $post_id,
+						'element_id' => $el_id,
+						'settings'   => array( 'type' => 'object', 'description' => 'Keys to set, e.g. {"title":"Nowy nagłówek"} or {"padding_mobile":{"unit":"px","top":"16","right":"16","bottom":"16","left":"16","isLinked":true}}.' ),
+						'unset'      => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Setting keys to remove (falls back to the default / global value).' ),
+						'dry_run'    => array( 'type' => 'boolean', 'default' => false, 'description' => 'Return before/after without writing.' ),
+					),
+					'required'   => array( 'post_id', 'element_id' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Elementor_Editor::patch_element(
+						(int) ( $input['post_id'] ?? 0 ),
+						(string) ( $input['element_id'] ?? '' ),
+						is_array( $input['settings'] ?? null ) ? $input['settings'] : array(),
+						is_array( $input['unset'] ?? null ) ? $input['unset'] : array(),
+						! empty( $input['dry_run'] )
+					);
+				},
+				'permission_callback' => $can_edit,
+				'meta'                => self::mcp_meta( false ),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/elementor-list-backups',
+			array(
+				'label'               => 'Elementor List Backups',
+				'description'         => 'Backups of _elementor_data made by the bridge before each write (newest first, last 5 per post).',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array( 'post_id' => $post_id ),
+					'required'   => array( 'post_id' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Elementor_Editor::list_backups( (int) ( $input['post_id'] ?? 0 ) );
+				},
+				'permission_callback' => $can_edit,
+				'meta'                => self::mcp_meta(),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/elementor-restore-backup',
+			array(
+				'label'               => 'Elementor Restore Backup',
+				'description'         => 'Undo: restore _elementor_data from a backup_key (from elementor-list-backups or a patch result). The current state is backed up first, so the restore can be undone too.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'post_id'    => $post_id,
+						'backup_key' => array( 'type' => 'string' ),
+					),
+					'required'   => array( 'post_id', 'backup_key' ),
+				),
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Elementor_Editor::restore_backup( (int) ( $input['post_id'] ?? 0 ), (string) ( $input['backup_key'] ?? '' ) );
+				},
+				'permission_callback' => $can_edit,
+				'meta'                => self::mcp_meta( false ),
+			)
+		);
+
+		wp_register_ability(
+			'cursor-bridge/purge-caches',
+			array(
+				'label'               => 'Purge All Caches',
+				'description'         => 'Flush every cache layer the site has: Elementor CSS + element cache, object cache, WooCommerce transients, LiteSpeed / WP Rocket / W3TC / WP Super Cache. CDN and hosting caches are not touched.',
+				'category'            => 'cursor-bridge',
+				'output_schema'       => array( 'type' => 'object' ),
+				'execute_callback'    => static fn(): array => Elementor_Editor::purge_all(),
+				'permission_callback' => $can_edit,
+				'meta'                => self::mcp_meta( false ),
 			)
 		);
 	}

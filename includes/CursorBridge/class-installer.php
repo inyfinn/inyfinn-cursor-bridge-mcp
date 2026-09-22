@@ -39,6 +39,7 @@ final class Installer {
 	public static function run_install( string $trigger ): array {
 		// Plik z sekretami tylko przy Włącz albo gdy hasła jeszcze nie ma — upgrade nie odtwarza pliku, który user skasował.
 		$write_setup = in_array( $trigger, array( 'activation', 'manual' ), true ) || ! Credentials::has_stored_application_password();
+		Front_Overlays::preserve_legacy_defaults();
 		$result      = self::full_bootstrap( true, $write_setup );
 		$version     = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '';
 
