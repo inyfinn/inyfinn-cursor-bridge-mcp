@@ -24,7 +24,8 @@ final class Installer {
 	public static function init(): void {
 		add_action( 'admin_init', array( __CLASS__, 'maybe_redirect_after_activation' ), 1 );
 		add_action( 'admin_init', array( __CLASS__, 'maybe_complete_install' ), 4 );
-		add_action( 'rest_api_init', array( __CLASS__, 'maybe_complete_install' ), 1 );
+		// rest_pre_dispatch runs after REST authentication — at rest_api_init the application-password user is not known yet.
+		add_filter( 'rest_pre_dispatch', array( __CLASS__, 'maybe_complete_install_rest' ), 1 );
 		add_action( 'admin_init', array( __CLASS__, 'maybe_self_heal' ), 5 );
 		add_action( 'shutdown', array( __CLASS__, 'run_deferred_conflict_deactivation' ), 1 );
 	}
@@ -70,7 +71,7 @@ final class Installer {
 	 * retry after a failure. Finish the install on the first admin or REST request
 	 * made by an administrator (REST covers agents using an application password).
 	 */
-	public static function maybe_complete_install(): void {
+	public static function maybe_complete_install( string $trigger = 'admin' ): void {
 		$version = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '';
 		if ( get_option( self::INSTALLED_VERSION_OPTION, '' ) === $version ) {
 			return;
@@ -82,7 +83,16 @@ final class Installer {
 			return;
 		}
 
-		self::run_install( doing_action( 'rest_api_init' ) ? 'rest' : 'admin' );
+		self::run_install( $trigger );
+	}
+
+	/**
+	 * @param mixed $result Pass-through value of rest_pre_dispatch.
+	 * @return mixed
+	 */
+	public static function maybe_complete_install_rest( $result ) {
+		self::maybe_complete_install( 'rest' );
+		return $result;
 	}
 
 	public static function maybe_redirect_after_activation(): void {
