@@ -320,7 +320,7 @@ final class Elementor_Editor {
 		$meta = $wpdb->get_results(
 			"SELECT m.post_id, m.meta_key, p.post_type FROM {$wpdb->postmeta} m JOIN {$wpdb->posts} p ON p.ID = m.post_id
 			WHERE p.post_type <> 'revision' AND m.meta_key NOT IN ('_elementor_data', '_elementor_element_cache', '_elementor_css')
-			AND m.meta_key NOT LIKE '" . esc_sql( $wpdb->esc_like( self::BACKUP_PREFIX ) ) . "%' AND " . $where( 'm.meta_value' ) . ' LIMIT ' . (int) $limit,
+			AND m.meta_key NOT LIKE '%backup%' AND " . $where( 'm.meta_value' ) . ' LIMIT ' . (int) $limit,
 			ARRAY_A
 		);
 		$options = $wpdb->get_col(
