@@ -4,6 +4,7 @@
 
 ### Fixed
 - Narzędzia plików (`read-wp-content-file`, `list-wp-content-dir`, `write-wp-content-file`) wymagały `edit_themes` / `edit_plugins`. WordPress odbiera te uprawnienia adminowi, gdy `wp-config.php` ma `DISALLOW_FILE_EDIT` — agent dostawał gołe „Permission denied”, a na hostingu bez FTP (kubara) nie miał żadnej drogi do plików. Teraz odczyt i listowanie wymagają konta administratora. Zapis nadal respektuje `DISALLOW_FILE_EDIT`, dopóki właściciel strony go nie odblokuje (Ustawienia → Cursor Bridge → „Zapis plików przez MCP mimo DISALLOW_FILE_EDIT” albo stała `INYFINN_BRIDGE_ALLOW_FILE_WRITE`). Odmowa mówi agentowi dokładnie to.
+- Czytnik plików MCP blokował tylko `cursor-setup.json`. Blokuje też `wp-content/inyfinn-cursor-bridge/backups/`, bo moduł zabezpieczeń trzyma tam pełne kopie `wp-config.php` (hasło bazy, klucze). Blokada porównuje ścieżkę po rozwinięciu (`realpath`), a segmenty `./` są usuwane, więc `inyfinn-cursor-bridge/./cursor-setup.json` już jej nie omija.
 - `verify-connection` zgłaszał `files: true`, choć narzędzia plików odmawiały. Teraz warstwa plików uwzględnia uprawnienia narzędzi, a `write_allowed` i `next_steps` mówią, czy zapis jest zablokowany i jak go włączyć.
 
 ## 1.7.0 — 2026-09-22

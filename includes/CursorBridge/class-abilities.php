@@ -290,7 +290,7 @@ final class Abilities {
 			'cursor-bridge/repair',
 			array(
 				'label'               => 'Repair Component',
-				'description'         => 'Fix one component: mu_plugin (usuwa legacy loader), app_password, setup_file, permalinks, conflicts, full_bootstrap. activate_plugin nie woła WP activate — tylko Włącz w adminie.',
+				'description'         => 'Fix one component: mu_plugin (usuwa legacy loader), app_password, setup_file, permalinks, conflicts, full_bootstrap, file_edit (zakomentowuje DISALLOW_FILE_EDIT w wp-config.php, z kopią). activate_plugin nie woła WP activate — tylko Włącz w adminie.',
 				'category'            => 'cursor-bridge',
 				'input_schema'        => array(
 					'type'       => 'object',
@@ -307,6 +307,7 @@ final class Abilities {
 								'conflicts',
 								'profile',
 								'full_bootstrap',
+								'file_edit',
 							),
 						),
 						'rotate_password' => array( 'type' => 'boolean', 'default' => false ),
@@ -918,7 +919,7 @@ final class Abilities {
 		if ( $write && self::file_write_blocked() ) {
 			return new \WP_Error(
 				'file_edit_disallowed',
-				'Zapis plików zablokowany: wp-config.php ma DISALLOW_FILE_EDIT. Odczyt i listowanie działają. Zapis przez MCP włącza właściciel strony: Ustawienia → Cursor Bridge → „Zapis plików przez MCP mimo DISALLOW_FILE_EDIT” albo define( \'INYFINN_BRIDGE_ALLOW_FILE_WRITE\', true ) w wp-config.php.'
+				'Zapis plików zablokowany: DISALLOW_FILE_EDIT. Odczyt i listowanie działają. Wywołaj cursor-bridge/repair {action:"file_edit"} — wtyczka zakomentuje tę stałą w wp-config.php (z kopią) i zapis zadziała od następnego wywołania. Gdy stała jest ustawiona poza wp-config.php: Ustawienia → Cursor Bridge → „Zapis plików przez MCP mimo DISALLOW_FILE_EDIT”.'
 			);
 		}
 		return true;

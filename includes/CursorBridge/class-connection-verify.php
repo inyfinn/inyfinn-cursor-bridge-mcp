@@ -89,7 +89,7 @@ final class Connection_Verify {
 			}
 		}
 		if ( Abilities::file_write_blocked() ) {
-			$steps[] = 'File writes are blocked by DISALLOW_FILE_EDIT (reads work). Ask the site owner to enable Settings → Cursor Bridge → "Zapis plików przez MCP mimo DISALLOW_FILE_EDIT".';
+			$steps[] = 'File writes are blocked by DISALLOW_FILE_EDIT (reads work). Call cursor-bridge/repair {action:"file_edit"} — it comments the constant out in wp-config.php (with a backup); writes work from the next call.';
 		}
 		return $steps ? $steps : array( 'Ready. Read cursor-bridge/get-agent-playbook, then find-content / elementor-outline to start editing.' );
 	}

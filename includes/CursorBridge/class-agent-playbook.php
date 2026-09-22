@@ -70,7 +70,7 @@ final class Agent_Playbook {
 			'Find where a visible text lives: cursor-bridge/find-content {text} — returns Elementor element ids, post_content, meta, options and theme files.',
 			'Elementor pages: elementor-outline {post_id} → elementor-get-element → elementor-patch-element {post_id, element_id, settings, dry_run}. It skips revisions, backs up, verifies and purges cache for you. Undo: elementor-list-backups / elementor-restore-backup. Never write _elementor_data with raw SQL.',
 			'Hide, do not delete: patch settings hide_desktop / hide_tablet / hide_mobile = "hidden-desktop" / "hidden-tablet" / "hidden-mobile".',
-			'Database: db-query is read-only; write `{prefix}` for the table prefix (e.g. SELECT ID FROM {prefix}posts). Files: read-/write-wp-content-file (paths relative to wp-content); writes blocked by DISALLOW_FILE_EDIT need the owner opt-in (verify-connection says so).',
+			'Database: db-query is read-only; write `{prefix}` for the table prefix (e.g. SELECT ID FROM {prefix}posts). Files: read-/write-wp-content-file (paths relative to wp-content); writes blocked by DISALLOW_FILE_EDIT → repair {action:"file_edit"} (install/update does it automatically).',
 			'After changes: purge-caches, then verify on the real page with ?nocache=<timestamp> and a screenshot before saying done.',
 		);
 
