@@ -24,7 +24,7 @@ final class Elementor_Editor {
 	private const MAX_BACKUPS  = 5;
 
 	/** Settings keys that usually carry visible text — used for outline previews. */
-	private const TEXT_KEYS = array( 'title', 'editor', 'text', 'title_text', 'description_text', 'button_text', 'heading', 'caption', 'html', 'shortcode', 'tab_title', 'alert_title', 'testimonial_content', 'inner_text' );
+	private const TEXT_KEYS = array( 'title', 'editor', 'text', 'title_text', 'description_text', 'button_text', 'heading', 'caption', 'html', 'shortcode', 'tab_title', 'alert_title', 'testimonial_content', 'inner_text', 'content', 'sub_title', 'subtitle', 'description', 'tab_content', 'item_text' );
 
 	/**
 	 * @return array{raw:string,data:array<int,mixed>,post:\WP_Post}|\WP_Error
@@ -520,13 +520,32 @@ final class Elementor_Editor {
 	 * @param array<string, mixed> $settings
 	 */
 	private static function preview( array $settings ): string {
+		$parts = array();
 		foreach ( self::TEXT_KEYS as $key ) {
 			if ( isset( $settings[ $key ] ) && is_string( $settings[ $key ] ) && '' !== trim( $settings[ $key ] ) ) {
-				$text = self::normalize( $settings[ $key ] );
-				return self::strlen( $text ) > 90 ? self::substr( $text, 90 ) . '…' : $text;
+				$parts[] = $settings[ $key ];
+				break;
 			}
 		}
-		return '';
+		// Theme widgets often keep text in repeaters (list of items with their own text keys).
+		if ( ! $parts ) {
+			foreach ( $settings as $value ) {
+				if ( ! is_array( $value ) || ! isset( $value[0] ) || ! is_array( $value[0] ) ) {
+					continue;
+				}
+				foreach ( $value as $item ) {
+					$text = is_array( $item ) ? self::preview( $item ) : '';
+					if ( '' !== $text ) {
+						$parts[] = $text;
+					}
+				}
+				if ( $parts ) {
+					break;
+				}
+			}
+		}
+		$text = self::normalize( implode( ' | ', $parts ) );
+		return self::strlen( $text ) > 90 ? self::substr( $text, 90 ) . '…' : $text;
 	}
 
 	/**
@@ -561,7 +580,7 @@ final class Elementor_Editor {
 	}
 
 	private static function normalize( string $text ): string {
-		$text = html_entity_decode( wp_strip_all_tags( $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$text = html_entity_decode( wp_strip_all_tags( (string) preg_replace( '/<[^>]+>/', ' ', $text ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 		return trim( (string) preg_replace( '/[\s\x{00A0}]+/u', ' ', $text ) );
 	}
 
