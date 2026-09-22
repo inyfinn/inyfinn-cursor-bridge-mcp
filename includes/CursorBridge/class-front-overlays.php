@@ -131,18 +131,9 @@ final class Front_Overlays {
 
 	public static function sanitize_color_id( string $id, string $fallback ): string {
 		$id = strtolower( $id );
-		$id = (string) preg_replace( '/[^a-z0-9_]/', '', $id );
-		if ( '' === $id ) {
-			return $fallback;
-		}
-		if ( '' === $fallback ) {
-			return $id;
-		}
-		$allowed = self::kit_global_colors();
-		if ( isset( $allowed[ $id ] ) ) {
-			return $id;
-		}
-		return $fallback;
+		unset( $fallback );
+		// '' = auto. Ids missing from this kit are kept too: palette() falls back per role at render time.
+		return (string) preg_replace( '/[^a-z0-9_]/', '', $id );
 	}
 
 	/**
@@ -151,15 +142,26 @@ final class Front_Overlays {
 	 * @return array<string, string> id => label
 	 */
 	public static function kit_global_colors(): array {
-		$out = array(
-			'vamtam_accent_1' => 'Accent 1 (las / primary)',
-			'vamtam_accent_2' => 'Accent 2 (wapno / accent)',
-			'vamtam_accent_3' => 'Accent 3',
-			'vamtam_accent_4' => 'Accent 4 (hover)',
-			'vamtam_accent_5' => 'Accent 5 (biel / ink)',
-		);
+		$out = array();
+		foreach ( self::kit_color_hex() as $id => $row ) {
+			$out[ $id ] = $row['title'] . ( '' !== $row['hex'] ? ' — ' . $row['hex'] : '' );
+		}
+		return $out;
+	}
+
+	/**
+	 * Elementor kit colours as id => {title, hex}. Empty when Elementor is not active.
+	 *
+	 * @return array<string, array{title:string,hex:string}>
+	 */
+	public static function kit_color_hex(): array {
+		static $cache = null;
+		if ( null !== $cache ) {
+			return $cache;
+		}
+		$out = array();
 		if ( ! class_exists( '\Elementor\Plugin' ) ) {
-			return $out;
+			return $cache = $out;
 		}
 		try {
 			$kits = \Elementor\Plugin::$instance->kits_manager ?? null;
@@ -183,20 +185,54 @@ final class Front_Overlays {
 					if ( '' === $cid ) {
 						continue;
 					}
-					$title = isset( $row['title'] ) ? (string) $row['title'] : $cid;
-					$hex   = isset( $row['color'] ) ? (string) $row['color'] : '';
-					$out[ $cid ] = $hex ? ( $title . ' — ' . $hex ) : $title;
+					$out[ $cid ] = array(
+						'title' => isset( $row['title'] ) ? (string) $row['title'] : $cid,
+						'hex'   => Djacc_Palette::norm( isset( $row['color'] ) ? (string) $row['color'] : '' ),
+					);
 				}
 			}
 		} catch ( \Throwable $e ) {
 			unset( $e );
 		}
-		return $out;
+		return $cache = $out;
+	}
+
+	/**
+	 * Final DJ colours for this site: mapped kit colours → contrast-checked palette.
+	 * A role whose colour is not in this site's kit falls back to Elementor's
+	 * system colours (primary / accent), so a theme without Vamtam ids still works.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function palette(): array {
+		$s     = self::settings();
+		$kit   = self::kit_color_hex();
+		$pick  = static function ( array $ids ) use ( $kit ): string {
+			foreach ( $ids as $id ) {
+				if ( '' !== $id && ! empty( $kit[ $id ]['hex'] ) ) {
+					return $kit[ $id ]['hex'];
+				}
+			}
+			return '';
+		};
+		return Djacc_Palette::build(
+			array(
+				'forest' => $pick( array( (string) $s['djacc_color_forest'], 'primary', 'secondary' ) ),
+				'lime'   => $pick( array( (string) $s['djacc_color_lime'], 'accent', 'secondary' ) ),
+				'hover'  => $pick( array( (string) $s['djacc_color_hover'] ) ),
+				'ink'    => $pick( array( (string) $s['djacc_color_ink'] ) ),
+			)
+		);
 	}
 
 	public static function color_select( string $name, string $current ): void {
+		$colors = self::kit_global_colors();
 		echo '<select name="' . esc_attr( $name ) . '" id="' . esc_attr( $name ) . '">';
-		foreach ( self::kit_global_colors() as $id => $label ) {
+		printf( '<option value="" %s>%s</option>', selected( $current, '', false ), esc_html__( 'Auto — z palety motywu, z kontrolą kontrastu', 'inyfinn-cursor-bridge-mcp' ) );
+		if ( '' !== $current && ! isset( $colors[ $current ] ) ) {
+			printf( '<option value="%1$s" selected>%1$s — %2$s</option>', esc_attr( $current ), esc_html__( 'brak w tym motywie, działa jak Auto', 'inyfinn-cursor-bridge-mcp' ) );
+		}
+		foreach ( $colors as $id => $label ) {
 			printf(
 				'<option value="%1$s" %2$s>%3$s</option>',
 				esc_attr( $id ),
@@ -207,20 +243,12 @@ final class Front_Overlays {
 		echo '</select>';
 	}
 
-	public static function css_global_var( string $id ): string {
-		$id = self::sanitize_color_id( $id, 'vamtam_accent_1' );
-		return 'var(--e-global-color-' . $id . ')';
-	}
-
 	public static function skin_custom_properties(): string {
-		$s = self::settings();
-		return sprintf(
-			'.djacc-popup{--inyfinn-djacc-forest:%1$s;--inyfinn-djacc-lime:%2$s;--inyfinn-djacc-hover:%3$s;--inyfinn-djacc-ink:%4$s;}',
-			self::css_global_var( (string) $s['djacc_color_forest'] ),
-			self::css_global_var( (string) $s['djacc_color_lime'] ),
-			self::css_global_var( (string) $s['djacc_color_hover'] ),
-			self::css_global_var( (string) $s['djacc_color_ink'] )
-		);
+		$css = '';
+		foreach ( self::palette() as $role => $hex ) {
+			$css .= '--inyfinn-djacc-' . str_replace( '_', '-', $role ) . ':' . $hex . ';';
+		}
+		return '.djacc-popup{' . $css . '}';
 	}
 
 	public static function handles_timer(): bool {
@@ -249,9 +277,8 @@ final class Front_Overlays {
 
 		if ( $load_dj ) {
 			wp_enqueue_style( 'inyfinn-djacc-compact', $base . 'djacc-compact.css', array(), file_exists( $css ) ? (string) filemtime( $css ) : $ver );
-			if ( ! empty( $s['djacc_skin'] ) ) {
-				wp_add_inline_style( 'inyfinn-djacc-compact', self::skin_custom_properties() );
-			}
+			// Always ship the computed palette: without it the stylesheet would fall back to neutral slate.
+			wp_add_inline_style( 'inyfinn-djacc-compact', self::skin_custom_properties() );
 		}
 
 		if ( $load_dj && ! empty( $s['djacc_compact'] ) ) {

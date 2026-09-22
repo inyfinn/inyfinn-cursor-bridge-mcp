@@ -96,6 +96,7 @@ try {
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-agent-playbook.php';
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-local-queue.php';
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-admin-page.php';
+	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-djacc-palette.php';
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-front-overlays.php';
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-abilities.php';
 	require_once INYFINN_CURSOR_BRIDGE_MCP_DIR . 'includes/CursorBridge/class-github-updater.php';

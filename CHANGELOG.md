@@ -10,6 +10,14 @@
 - `cursor-bridge/purge-caches` — wszystkie warstwy cache (Elementor CSS + element cache, obiektowy, WooCommerce, LiteSpeed, WP Rocket, W3TC, WP Super Cache). `flush-caches` = alias.
 - `verify-connection` zwraca `next_steps` — konkretna akcja dla każdej niedziałającej warstwy.
 
+### Fixed — kolory DJ Accessibility
+- Skórka DJ miała na sztywno zmienne motywu Vamtam (`--e-global-color-vamtam_accent_*`). Na każdym innym motywie panel był przezroczysty, suwaki niewidoczne, przycisk zamknięcia bez tła. Teraz kolory liczy serwer (`Djacc_Palette`) z palety Elementora na gotowe wartości hex; rola bez koloru w danym motywie bierze `primary` / `accent`.
+- Kontrast pilnowany automatycznie (WCAG AA 4.5:1 dla tekstu i ikon): jasny kolor marki = jasny panel z ciemnym tekstem, akcent zbyt podobny do przycisków = aktywne przyciski w kolorze tekstu, średnie tony przyciemniane, prawie czarna marka dostaje jaśniejsze przyciski, tor suwaka zawsze widoczny.
+- Ikona „reset” była ciemna na ciemnym panelu (także na kubara).
+- Widoczny `:focus-visible` na przyciskach panelu.
+- Wybór kolorów w panelu: opcja „Auto”; id spoza motywu oznaczone jako „działa jak Auto”.
+- Test bez WordPressa: `php tests/djacc-palette-check.php` (7 palet, w tym kubara bez zmian).
+
 ### Fixed
 - `db-query` połykał błędy SQL (`get_results()` zwraca pustą tablicę przy błędzie) — zła nazwa tabeli dawała `ok:true, 0 rows`. Teraz `ok:false` + komunikat + podpowiedź prefiksu. Nowy placeholder `{prefix}`.
 - `db-query` blokował `LIKE '%update%'` — słowa kluczowe sprawdzane poza literałami; zablokowane też `INTO OUTFILE/DUMPFILE` i wiele instrukcji.
