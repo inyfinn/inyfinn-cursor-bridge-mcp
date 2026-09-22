@@ -21,12 +21,27 @@ final class File_Reader {
 	private static function blocked_paths(): array {
 		return array(
 			'inyfinn-cursor-bridge/cursor-setup.json',
+			// Hardening backups hold full copies of wp-config.php (DB password, auth keys).
+			'inyfinn-cursor-bridge/backups/',
 		);
 	}
 
 	private static function is_blocked_path( string $relative ): bool {
 		$relative = self::sanitize_relative_path( $relative );
-		return in_array( $relative, self::blocked_paths(), true );
+		// Compare the resolved path, so "./", "//" or symlinks cannot dodge the list.
+		$root = realpath( WP_CONTENT_DIR );
+		$real = realpath( WP_CONTENT_DIR . '/' . $relative );
+		if ( false !== $root && false !== $real ) {
+			$relative = ltrim( substr( wp_normalize_path( $real ), strlen( wp_normalize_path( $root ) ) ), '/' );
+		}
+		$relative = strtolower( $relative );
+		foreach ( self::blocked_paths() as $blocked ) {
+			$is_dir = '/' === substr( $blocked, -1 );
+			if ( $relative === $blocked || ( $is_dir && ( 0 === strpos( $relative . '/', $blocked ) ) ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -35,7 +50,7 @@ final class File_Reader {
 	public static function sanitize_relative_path( string $relative ): string {
 		$relative = str_replace( array( "\0", "\r", "\n" ), '', $relative );
 		$relative = wp_normalize_path( $relative );
-		$relative = ltrim( $relative, '/' );
+		$relative = ltrim( (string) preg_replace( '#(^|/)(\./)+#', '$1', $relative ), '/' );
 
 		if ( '' === $relative || false !== strpos( $relative, '..' ) ) {
 			return '';
@@ -85,7 +100,7 @@ final class File_Reader {
 			return new \WP_Error( 'invalid_path', 'Invalid or empty path.' );
 		}
 		if ( self::is_blocked_path( $relative ) ) {
-			return new \WP_Error( 'blocked', 'Sensitive setup file — use cursor-bridge/get-cursor-bundle (admin) or read via SFTP workspace.' );
+			return new \WP_Error( 'blocked', 'Sensitive file (setup secrets or wp-config backup) — not available over MCP. Setup data: cursor-bridge/get-cursor-bundle.' );
 		}
 
 		$path = self::resolve_safe_path( $relative );

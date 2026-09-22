@@ -131,6 +131,7 @@ final class Installer {
 			'app_password'    => $app_password,
 			'setup_file'      => array( 'ok' => false, 'message' => 'Skipped — app password not ready.' ),
 			'permalink_flush' => self::flush_permalinks(),
+			'file_edit'       => self::enable_file_edit(),
 		);
 
 		if ( ! $write_setup ) {
@@ -169,7 +170,7 @@ final class Installer {
 	 * @return list<string>
 	 */
 	private static function collect_bootstrap_errors( array $results ): array {
-		$steps  = array( 'plugin_active', 'mu_plugin', 'conflicts', 'profile', 'app_password', 'setup_file', 'permalink_flush' );
+		$steps  = array( 'plugin_active', 'mu_plugin', 'conflicts', 'profile', 'app_password', 'setup_file', 'permalink_flush', 'file_edit' );
 		$errors = array();
 
 		foreach ( $steps as $step ) {
@@ -188,6 +189,86 @@ final class Installer {
 		}
 
 		return $errors;
+	}
+
+	/**
+	 * DISALLOW_FILE_EDIT in wp-config.php takes edit_themes / edit_plugins away from
+	 * every admin, so the bridge cannot edit files — on hosts without FTP that leaves
+	 * no file channel at all. Owner decision (2026-09-22): the bridge switches it off.
+	 * Reversible: wp-config.php is backed up, the define is commented out (not deleted)
+	 * with a dated note, and the file is linted and restored on any problem.
+	 * Takes effect from the next request (a defined constant cannot be undefined).
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function enable_file_edit(): array {
+		if ( ! defined( 'DISALLOW_FILE_EDIT' ) || ! DISALLOW_FILE_EDIT ) {
+			return array( 'ok' => true, 'changed' => false, 'message' => 'DISALLOW_FILE_EDIT nie jest włączone.' );
+		}
+
+		$config = ABSPATH . 'wp-config.php';
+		if ( ! is_readable( $config ) ) {
+			$config = dirname( ABSPATH ) . '/wp-config.php';
+		}
+		$raw = is_readable( $config ) ? file_get_contents( $config ) : false;
+		if ( false === $raw ) {
+			return array( 'ok' => false, 'message' => 'Nie mogę odczytać wp-config.php — usuń DISALLOW_FILE_EDIT ręcznie albo włącz zapis w Ustawienia → Cursor Bridge.' );
+		}
+
+		$note = 'Inyfinn Cursor Bridge ' . gmdate( 'Y-m-d' ) . ': wyłączone, żeby agent mógł edytować pliki przez MCP. Przywrócenie: usuń komentarz.';
+		$new  = self::comment_out_disallow_file_edit( $raw, $note );
+		if ( null === $new ) {
+			return array( 'ok' => false, 'message' => 'DISALLOW_FILE_EDIT jest ustawione poza wp-config.php (mu-plugin, wtyczka bezpieczeństwa albo hosting) — wyłącz je tam albo włącz zapis w Ustawienia → Cursor Bridge.' );
+		}
+		if ( ! is_writable( $config ) ) {
+			return array( 'ok' => false, 'message' => 'wp-config.php jest tylko do odczytu — usuń DISALLOW_FILE_EDIT ręcznie albo włącz zapis w Ustawienia → Cursor Bridge.' );
+		}
+
+		$backup = Hardening_Backup::backup_file( $config );
+		if ( empty( $backup['ok'] ) ) {
+			return array( 'ok' => false, 'message' => 'Brak kopii wp-config.php, nic nie zmieniono: ' . ( $backup['message'] ?? '' ) );
+		}
+
+		if ( false === file_put_contents( $config, $new, LOCK_EX ) ) {
+			return array( 'ok' => false, 'message' => 'Zapis wp-config.php nie powiódł się, plik bez zmian.', 'backup' => $backup['path'] );
+		}
+		$lint = Hardening::lint_php_file( $config );
+		if ( empty( $lint['ok'] ) ) {
+			Hardening_Backup::restore( $backup['path'], $config );
+			return array( 'ok' => false, 'message' => 'wp-config.php po zmianie nie przeszedł kontroli składni — przywrócono kopię.', 'backup' => $backup['path'] );
+		}
+
+		update_option( 'inyfinn_cursor_bridge_file_edit_enabled', gmdate( 'c' ), false );
+
+		return array(
+			'ok'      => true,
+			'changed' => true,
+			'backup'  => $backup['path'],
+			'message' => 'DISALLOW_FILE_EDIT zakomentowane w wp-config.php (kopia: ' . $backup['path'] . '). Działa od następnego żądania.',
+		);
+	}
+
+	/**
+	 * Pure text transform, checked by tests/file-edit-check.php. Each active
+	 * define( 'DISALLOW_FILE_EDIT', … ); becomes an inline block comment, which keeps
+	 * wrappers such as if ( ! defined( … ) ) { define( … ); } valid. Lines that are
+	 * already comments are left alone. Null when there is no active define.
+	 */
+	public static function comment_out_disallow_file_edit( string $raw, string $note ): ?string {
+		$changed = false;
+		$new     = preg_replace_callback(
+			'/^([^\n]*?)(define\s*\(\s*([\'"])DISALLOW_FILE_EDIT\3\s*,[^;]*?\)\s*;)/im',
+			static function ( array $m ) use ( $note, &$changed ): string {
+				$prefix = ltrim( $m[1] );
+				if ( false !== strpos( $m[1], '//' ) || false !== strpos( $m[1], '#' ) || false !== strpos( $m[1], '/*' ) || 0 === strpos( $prefix, '*' ) ) {
+					return $m[0];
+				}
+				$changed = true;
+				return $m[1] . '/* ' . str_replace( '*/', '* /', $note . ' ' . $m[2] ) . ' */';
+			},
+			$raw
+		);
+		return ( $changed && is_string( $new ) ) ? $new : null;
 	}
 
 	public static function maybe_self_heal(): void {

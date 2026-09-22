@@ -120,6 +120,9 @@ final class Health {
 			case 'profile':
 				$result = Installer::ensure_hosting_profile_public();
 				break;
+			case 'file_edit':
+				$result = Installer::enable_file_edit();
+				break;
 			case 'full_bootstrap':
 				$result = Installer::run_install( 'manual' );
 				break;

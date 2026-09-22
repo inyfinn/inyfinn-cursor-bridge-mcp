@@ -35,6 +35,8 @@ smoke_assert( 'themes/my file.css' === \Inyfinn_Cursor_Bridge\File_Reader::sanit
 
 $blocked_read = \Inyfinn_Cursor_Bridge\File_Reader::read_file( 'inyfinn-cursor-bridge/cursor-setup.json' );
 smoke_assert( is_wp_error( $blocked_read ), 'blocks read of cursor-setup.json' );
+smoke_assert( is_wp_error( \Inyfinn_Cursor_Bridge\File_Reader::read_file( 'inyfinn-cursor-bridge/./cursor-setup.json' ) ), 'blocks ./ variant of cursor-setup.json' );
+smoke_assert( 'themes/a.css' === \Inyfinn_Cursor_Bridge\File_Reader::sanitize_relative_path( './themes/./a.css' ), 'strips ./ segments' );
 
 // Bundle without secrets — no side effects.
 $before = \Inyfinn_Cursor_Bridge\Credentials::has_application_password();

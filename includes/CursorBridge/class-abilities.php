@@ -290,7 +290,7 @@ final class Abilities {
 			'cursor-bridge/repair',
 			array(
 				'label'               => 'Repair Component',
-				'description'         => 'Fix one component: mu_plugin (usuwa legacy loader), app_password, setup_file, permalinks, conflicts, full_bootstrap. activate_plugin nie woła WP activate — tylko Włącz w adminie.',
+				'description'         => 'Fix one component: mu_plugin (usuwa legacy loader), app_password, setup_file, permalinks, conflicts, full_bootstrap, file_edit (zakomentowuje DISALLOW_FILE_EDIT w wp-config.php, z kopią). activate_plugin nie woła WP activate — tylko Włącz w adminie.',
 				'category'            => 'cursor-bridge',
 				'input_schema'        => array(
 					'type'       => 'object',
@@ -307,6 +307,7 @@ final class Abilities {
 								'conflicts',
 								'profile',
 								'full_bootstrap',
+								'file_edit',
 							),
 						),
 						'rotate_password' => array( 'type' => 'boolean', 'default' => false ),
@@ -527,7 +528,7 @@ final class Abilities {
 					}
 					return $result;
 				},
-				'permission_callback' => static fn() => current_user_can( 'edit_themes' ) || current_user_can( 'edit_plugins' ),
+				'permission_callback' => static fn() => self::file_permission( true ),
 				'meta'                => self::mcp_meta( false ),
 			)
 		);
@@ -680,7 +681,7 @@ final class Abilities {
 					}
 					return $result;
 				},
-				'permission_callback' => static fn() => current_user_can( 'edit_themes' ) || current_user_can( 'edit_plugins' ),
+				'permission_callback' => static fn() => self::file_permission( false ),
 				'meta'                => self::mcp_meta(),
 			)
 		);
@@ -709,7 +710,7 @@ final class Abilities {
 					}
 					return $result;
 				},
-				'permission_callback' => static fn() => current_user_can( 'edit_themes' ) || current_user_can( 'edit_plugins' ),
+				'permission_callback' => static fn() => self::file_permission( false ),
 				'meta'                => self::mcp_meta(),
 			)
 		);
@@ -899,6 +900,37 @@ final class Abilities {
 				'meta'                => self::mcp_meta( false ),
 			)
 		);
+	}
+
+	public const ALLOW_FILE_WRITE_OPTION = 'inyfinn_cursor_bridge_allow_file_write';
+
+	/**
+	 * File abilities. Reading and listing need an administrator. Writing also respects
+	 * DISALLOW_FILE_EDIT unless the site owner opted in (constant or Bridge setting).
+	 * On hosts without FTP the bridge is the only file channel, so a refusal must say
+	 * exactly how to unlock it — a bare "Permission denied" leaves the agent stuck.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public static function file_permission( bool $write ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new \WP_Error( 'forbidden', 'File abilities need an administrator account (manage_options).' );
+		}
+		if ( $write && self::file_write_blocked() ) {
+			return new \WP_Error(
+				'file_edit_disallowed',
+				'Zapis plików zablokowany: DISALLOW_FILE_EDIT. Odczyt i listowanie działają. Wywołaj cursor-bridge/repair {action:"file_edit"} — wtyczka zakomentuje tę stałą w wp-config.php (z kopią) i zapis zadziała od następnego wywołania. Gdy stała jest ustawiona poza wp-config.php: Ustawienia → Cursor Bridge → „Zapis plików przez MCP mimo DISALLOW_FILE_EDIT”.'
+			);
+		}
+		return true;
+	}
+
+	public static function file_write_blocked(): bool {
+		if ( ! defined( 'DISALLOW_FILE_EDIT' ) || ! DISALLOW_FILE_EDIT ) {
+			return false;
+		}
+		$allowed = ( defined( 'INYFINN_BRIDGE_ALLOW_FILE_WRITE' ) && INYFINN_BRIDGE_ALLOW_FILE_WRITE ) || (bool) get_option( self::ALLOW_FILE_WRITE_OPTION, false );
+		return ! $allowed;
 	}
 
 	private static function register_editing_abilities(): void {

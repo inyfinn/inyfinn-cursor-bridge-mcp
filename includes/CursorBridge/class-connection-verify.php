@@ -88,6 +88,9 @@ final class Connection_Verify {
 				$steps[] = $fixes[ $layer ];
 			}
 		}
+		if ( Abilities::file_write_blocked() ) {
+			$steps[] = 'File writes are blocked by DISALLOW_FILE_EDIT (reads work). Call cursor-bridge/repair {action:"file_edit"} — it comments the constant out in wp-config.php (with a backup); writes work from the next call.';
+		}
 		return $steps ? $steps : array( 'Ready. Read cursor-bridge/get-agent-playbook, then find-content / elementor-outline to start editing.' );
 	}
 
@@ -154,13 +157,17 @@ final class Connection_Verify {
 			: WP_PLUGIN_DIR . '/inyfinn-cursor-bridge-mcp/inyfinn-cursor-bridge-mcp.php';
 		$plugin_ok   = is_readable( $plugin_file );
 
-		$ok = $content_ok && $list_ok && $plugin_ok;
+		$ok            = $content_ok && $list_ok && $plugin_ok && true === Abilities::file_permission( false );
+		$write_blocked = Abilities::file_write_blocked();
 
 		return array(
-			'ok'      => $ok,
-			'label'   => 'Pliki (wp-content)',
-			'message' => $ok
-				? 'Odczyt wp-content OK — MCP read/write-wp-content-file lub SFTP workspace'
+			'ok'            => $ok,
+			'write_allowed' => $ok && ! $write_blocked,
+			'label'         => 'Pliki (wp-content)',
+			'message'       => $ok
+				? ( $write_blocked
+					? 'Odczyt wp-content OK. Zapis przez MCP zablokowany (DISALLOW_FILE_EDIT) — Ustawienia → Cursor Bridge → „Zapis plików przez MCP mimo DISALLOW_FILE_EDIT”.'
+					: 'Odczyt i zapis wp-content OK — MCP read/write-wp-content-file lub SFTP workspace' )
 				: 'Brak odczytu wp-content',
 			'method'  => 'MCP file abilities or SFTP mount of public_html',
 			'paths'   => array(
