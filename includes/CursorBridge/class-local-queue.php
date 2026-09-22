@@ -222,25 +222,27 @@ final class Local_Queue {
 			return array( 'ok' => false, 'error' => 'missing_args' );
 		}
 
+		if ( 'revision' === get_post_type( $post_id ) ) {
+			return array( 'ok' => false, 'error' => 'revision', 'message' => 'Post ' . $post_id . ' is a revision — edit the parent post; writing to a revision silently reverts the live page.' );
+		}
+
 		$old = get_post_meta( $post_id, $meta_key, true );
 		if ( ! is_string( $old ) || ! str_contains( $old, $from ) ) {
 			return array( 'ok' => false, 'error' => 'substring_not_found', 'post_id' => $post_id );
 		}
 
-		if ( '_elementor_data' === $meta_key ) {
-			$check_old = json_decode( $old, true );
-			if ( ! is_array( $check_old ) ) {
-				return array( 'ok' => false, 'error' => 'json_invalid_before', 'detail' => json_last_error_msg() );
-			}
-		}
-
 		$new = str_replace( $from, $to, $old );
 
+		// Elementor data: backup, JSON check, verify and purge in one place.
 		if ( '_elementor_data' === $meta_key ) {
-			$check_new = json_decode( $new, true );
-			if ( ! is_array( $check_new ) ) {
-				return array( 'ok' => false, 'error' => 'json_invalid_after', 'detail' => json_last_error_msg() );
-			}
+			return array_merge(
+				Elementor_Editor::save_raw( $post_id, $new ),
+				array(
+					'meta_key' => $meta_key,
+					'from'     => $from,
+					'to'       => $to,
+				)
+			);
 		}
 
 		update_post_meta( $post_id, $meta_key, wp_slash( $new ) );

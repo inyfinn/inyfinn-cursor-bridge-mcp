@@ -266,6 +266,7 @@ W **Ustawienia → Cursor Bridge** uzupełnij:
 | 1.6.4 | Panel DJ ciemniejszy; „Rozwiń więcej funkcji” = accent_1 jak karta siedziby |
 | 1.6.5 | DJ: radius 24/9px; studzienki = accent_1, bez jasnego mixu |
 | 1.6.6 | DJ: kolory z globali Elementora (ustawienia Bridge, mapowanie roli) |
+| 1.7.0 | Instalacja kończy się sama po aktualizacji; instrukcje dla agenta w MCP initialize; bezpieczna edycja Elementora (outline/patch/backup/restore), find-content, purge-caches; db-query `{prefix}` i zgłaszanie błędów SQL; nakładki frontu opt-in |
 
 Zawsze instaluj **najnowszy release** z GitHub.
 

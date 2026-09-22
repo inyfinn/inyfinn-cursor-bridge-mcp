@@ -127,7 +127,7 @@ final class Admin_Page {
 				self::nonce_failed_notice();
 				return;
 			}
-			self::handle_bootstrap_result( Installer::full_bootstrap( true ) );
+			self::handle_bootstrap_result( Installer::run_install( 'manual' ) );
 			self::redirect_with_notices( self::admin_page_url() );
 		}
 
@@ -136,7 +136,7 @@ final class Admin_Page {
 				self::nonce_failed_notice();
 				self::redirect_with_notices( self::admin_page_url() );
 			}
-			self::handle_bootstrap_result( Installer::full_bootstrap( true ) );
+			self::handle_bootstrap_result( Installer::run_install( 'manual' ) );
 			self::redirect_with_notices( self::admin_page_url() );
 		}
 
@@ -274,10 +274,28 @@ final class Admin_Page {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
+		$url = admin_url( 'options-general.php?page=inyfinn-cursor-bridge' );
+
+		// Bez Abilities API (WP < 6.9) wtyczka jest włączona, ale nie rejestruje żadnego narzędzia MCP.
+		if ( ! function_exists( 'wp_register_ability' ) ) {
+			echo '<div class="notice notice-error"><p>';
+			echo esc_html__( 'Inyfinn Cursor Bridge: brak Abilities API — zaktualizuj WordPress do 6.9+ albo zainstaluj wtyczkę Abilities API. Do tego czasu MCP nie ma żadnych narzędzi.', 'inyfinn-cursor-bridge-mcp' );
+			echo '</p></div>';
+		}
+
+		$last = get_option( Installer::LAST_RESULT_OPTION, array() );
+		if ( is_array( $last ) && isset( $last['ok'] ) && ! $last['ok'] ) {
+			echo '<div class="notice notice-error"><p>';
+			echo esc_html__( 'Inyfinn Cursor Bridge: instalacja nie zakończyła się.', 'inyfinn-cursor-bridge-mcp' ) . ' ';
+			echo esc_html( implode( '; ', (array) ( $last['errors'] ?? array() ) ) );
+			echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Otwórz panel i napraw', 'inyfinn-cursor-bridge-mcp' ) . '</a>';
+			echo '</p></div>';
+			return;
+		}
+
 		if ( Health::is_healthy() ) {
 			return;
 		}
-		$url = admin_url( 'options-general.php?page=inyfinn-cursor-bridge' );
 		echo '<div class="notice notice-warning"><p>';
 		echo esc_html__( 'Inyfinn Cursor Bridge: wykryto problemy w diagnostyce.', 'inyfinn-cursor-bridge-mcp' );
 		echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Otwórz panel i napraw', 'inyfinn-cursor-bridge-mcp' ) . '</a>';

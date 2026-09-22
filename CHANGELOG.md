@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.7.0 — 2026-09-22
+
+### Added — edycja dla agentów
+- **Instrukcje dla agenta w odpowiedzi MCP `initialize`** (`Agent_Playbook`): każdy klient (Cursor, Claude Code) pokazuje agentowi przy połączeniu fakty o stronie (prefiks tabel, motyw potomny, builder, cache, języki) i kolejność pracy. Agent nie musi znać skilli ani dokumentacji.
+- `cursor-bridge/get-agent-playbook` — pełne workflowy i zasady.
+- `cursor-bridge/find-content` — gdzie naprawdę leży tekst: elementy Elementora (post_id + element_id + klucz), post_content, meta, opcje, pliki motywu potomnego i mu-plugins. Radzi sobie z `\uXXXX` w JSON Elementora i z `&nbsp;` między słowami.
+- `cursor-bridge/elementor-outline`, `elementor-get-element`, `elementor-patch-element` (z `dry_run`), `elementor-list-backups`, `elementor-restore-backup`. Zapis: odmowa dla rewizji, kopia przed zapisem (5 ostatnich), `wp_slash( wp_json_encode() )`, weryfikacja po zapisie z automatycznym cofnięciem, odmowa przy spadku rozmiaru > 20%, czyszczenie cache elementu, CSS wpisu i LiteSpeed/WP Rocket.
+- `cursor-bridge/purge-caches` — wszystkie warstwy cache (Elementor CSS + element cache, obiektowy, WooCommerce, LiteSpeed, WP Rocket, W3TC, WP Super Cache). `flush-caches` = alias.
+- `verify-connection` zwraca `next_steps` — konkretna akcja dla każdej niedziałającej warstwy.
+
+### Fixed — kolory DJ Accessibility
+- Skórka DJ miała na sztywno zmienne motywu Vamtam (`--e-global-color-vamtam_accent_*`). Na każdym innym motywie panel był przezroczysty, suwaki niewidoczne, przycisk zamknięcia bez tła. Teraz kolory liczy serwer (`Djacc_Palette`) z palety Elementora na gotowe wartości hex; rola bez koloru w danym motywie bierze `primary` / `accent`.
+- Kontrast pilnowany automatycznie (WCAG AA 4.5:1 dla tekstu i ikon): jasny kolor marki = jasny panel z ciemnym tekstem, akcent zbyt podobny do przycisków = aktywne przyciski w kolorze tekstu, średnie tony przyciemniane, prawie czarna marka dostaje jaśniejsze przyciski, tor suwaka zawsze widoczny.
+- Ikona „reset” była ciemna na ciemnym panelu (także na kubara).
+- Widoczny `:focus-visible` na przyciskach panelu.
+- Wybór kolorów w panelu: opcja „Auto”; id spoza motywu oznaczone jako „działa jak Auto”.
+- Test bez WordPressa: `php tests/djacc-palette-check.php` (7 palet, w tym kubara bez zmian).
+
+### Fixed
+- `db-query` połykał błędy SQL (`get_results()` zwraca pustą tablicę przy błędzie) — zła nazwa tabeli dawała `ok:true, 0 rows`. Teraz `ok:false` + komunikat + podpowiedź prefiksu. Nowy placeholder `{prefix}`.
+- `db-query` blokował `LIKE '%update%'` — słowa kluczowe sprawdzane poza literałami; zablokowane też `INTO OUTFILE/DUMPFILE` i wiele instrukcji.
+- `update-post-meta` było oznaczone jako read-only i pisało także do rewizji. Teraz odmawia rewizji, a `_elementor_data` idzie tą samą bezpieczną ścieżką co `elementor-patch-element`.
+- Nakładki frontu (skórka DJ Accessibility, antyspam formularzy Elementor Pro) były domyślnie włączone na każdej stronie z wtyczką. Teraz opt-in; CSS/JS DJ ładuje się tylko przy aktywnej wtyczce DJ Accessibility. Strony, które już ich używały (DJ aktywny, brak zapisanych ustawień), zachowują dotychczasowe zachowanie.
+
+### Fixed — instalacja
+- Instalacja nie zależy już wyłącznie od hooka aktywacji. Po aktualizacji (GitHub updater, FTP, git pull) albo po nieudanej instalacji wtyczka kończy ją sama przy pierwszym żądaniu administratora w panelu **lub przez REST/MCP** (hasło aplikacji). Wersja jest oznaczana jako zainstalowana dopiero po sukcesie; porażka = ponowna próba po 10 min.
+- Po kliknięciu Włącz: jednorazowe przekierowanie do Ustawienia → Cursor Bridge, gdzie widać wynik instalacji.
+- Nieudana instalacja pokazuje błąd z listą kroków w panelu (wcześniej wynik aktywacji był odrzucany, a flaga `bootstrapped` ustawiana nawet przy porażce).
+- Brak Abilities API (WP < 6.9) = czytelny komunikat w panelu zamiast cichego braku narzędzi MCP.
+- Self-heal blokował ponowną próbę na godzinę; teraz 10 min.
+
+### Changed
+- Kopie wtyczki w innych folderach są tylko dezaktywowane, **nie kasowane** (wcześniej rekurencyjne usuwanie katalogów przy każdym żądaniu).
+- Przycisk Auto-setup, ability `run-auto-setup` i repair `full_bootstrap` idą przez `Installer::run_install()` i aktualizują status instalacji.
+
 ## 1.6.6 — 2026-09-14
 
 ### Added

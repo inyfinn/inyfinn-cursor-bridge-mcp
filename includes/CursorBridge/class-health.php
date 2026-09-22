@@ -121,7 +121,7 @@ final class Health {
 				$result = Installer::ensure_hosting_profile_public();
 				break;
 			case 'full_bootstrap':
-				$result = Installer::full_bootstrap( $rotate_password );
+				$result = Installer::run_install( 'manual' );
 				break;
 			default:
 				return array(

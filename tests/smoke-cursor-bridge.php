@@ -62,5 +62,39 @@ if ( function_exists( 'wp_get_abilities' ) ) {
 	fwrite( STDERR, "SKIP: wp_get_abilities not available\n" );
 }
 
+// db-query: SQL errors surface, {prefix} works, LIKE with keywords inside literals is allowed.
+$bad = \Inyfinn_Cursor_Bridge\Db_Query::run( 'SELECT 1 FROM no_such_table_xyz' );
+smoke_assert( empty( $bad['ok'] ), 'db-query reports SQL errors' );
+$pref = \Inyfinn_Cursor_Bridge\Db_Query::run( "SELECT COUNT(*) n FROM {prefix}posts WHERE post_title LIKE '%update%'" );
+smoke_assert( ! empty( $pref['ok'] ), 'db-query {prefix} + keyword inside literal' );
+$multi = \Inyfinn_Cursor_Bridge\Db_Query::run( 'SELECT 1; SELECT 2' );
+smoke_assert( empty( $multi['ok'] ), 'db-query blocks multiple statements' );
+
+// Agent instructions carry live facts.
+smoke_assert( false !== strpos( \Inyfinn_Cursor_Bridge\Agent_Playbook::instructions(), $GLOBALS['wpdb']->prefix ), 'MCP instructions include table prefix' );
+
+// Elementor editor: read-only checks on the front page, revision guard.
+$front = (int) get_option( 'page_on_front' );
+if ( $front && get_post_meta( $front, '_elementor_data', true ) ) {
+	$outline = \Inyfinn_Cursor_Bridge\Elementor_Editor::outline( $front );
+	smoke_assert( ! empty( $outline['ok'] ) && $outline['count'] > 0, 'elementor-outline on front page' );
+	$first = $outline['elements'][0]['id'] ?? '';
+	$dry   = \Inyfinn_Cursor_Bridge\Elementor_Editor::patch_element( $front, (string) $first, array( '_smoke' => '1' ), array(), true );
+	smoke_assert( ! empty( $dry['dry_run'] ), 'elementor-patch-element dry_run writes nothing' );
+	$revs = wp_get_post_revisions( $front, array( 'numberposts' => 1 ) );
+	if ( $revs ) {
+		$rev = \Inyfinn_Cursor_Bridge\Elementor_Editor::outline( (int) array_key_first( $revs ) );
+		smoke_assert( 'revision' === ( $rev['error'] ?? '' ), 'elementor-* refuses revisions' );
+	}
+}
+
+// Install state: either the current version is marked installed or the failure is recorded for the admin notice.
+$installed = get_option( \Inyfinn_Cursor_Bridge\Installer::INSTALLED_VERSION_OPTION, '' );
+$last      = get_option( \Inyfinn_Cursor_Bridge\Installer::LAST_RESULT_OPTION, array() );
+smoke_assert(
+	INYFINN_CURSOR_BRIDGE_MCP_VERSION === $installed || ( is_array( $last ) && isset( $last['ok'] ) && ! $last['ok'] ),
+	'install completed or failure recorded (installed=' . $installed . ')'
+);
+
 echo $failures === 0 ? "\nAll smoke tests passed.\n" : "\n{$failures} test(s) failed.\n";
 exit( $failures > 0 ? 1 : 0 );

@@ -19,7 +19,6 @@ final class Bootstrap {
 		add_action( 'plugins_loaded', array( __CLASS__, 'on_plugins_loaded' ), 25 );
 
 		Installer::init();
-		Installer::cleanup_duplicate_installations();
 		Local_Queue::init();
 		Admin_Page::init();
 		Front_Overlays::init();
@@ -29,12 +28,14 @@ final class Bootstrap {
 
 	public static function on_activate(): void {
 		Installer::remove_mu_plugin_loader();
-		Installer::full_bootstrap( true );
-		update_option( 'inyfinn_cursor_bridge_bootstrapped', true, false );
+		Installer::run_install( 'activation' );
+		// Jednorazowe przekierowanie do panelu — user od razu widzi wynik instalacji.
+		set_transient( Installer::REDIRECT_TRANSIENT, 1, MINUTE_IN_SECONDS );
 	}
 
 	public static function on_deactivate(): void {
 		Installer::remove_mu_plugin_loader();
+		delete_option( Installer::INSTALLED_VERSION_OPTION );
 	}
 
 	public static function on_plugins_loaded(): void {
