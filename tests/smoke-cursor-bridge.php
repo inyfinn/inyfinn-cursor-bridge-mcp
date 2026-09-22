@@ -62,5 +62,13 @@ if ( function_exists( 'wp_get_abilities' ) ) {
 	fwrite( STDERR, "SKIP: wp_get_abilities not available\n" );
 }
 
+// Install state: either the current version is marked installed or the failure is recorded for the admin notice.
+$installed = get_option( \Inyfinn_Cursor_Bridge\Installer::INSTALLED_VERSION_OPTION, '' );
+$last      = get_option( \Inyfinn_Cursor_Bridge\Installer::LAST_RESULT_OPTION, array() );
+smoke_assert(
+	INYFINN_CURSOR_BRIDGE_MCP_VERSION === $installed || ( is_array( $last ) && isset( $last['ok'] ) && ! $last['ok'] ),
+	'install completed or failure recorded (installed=' . $installed . ')'
+);
+
 echo $failures === 0 ? "\nAll smoke tests passed.\n" : "\n{$failures} test(s) failed.\n";
 exit( $failures > 0 ? 1 : 0 );

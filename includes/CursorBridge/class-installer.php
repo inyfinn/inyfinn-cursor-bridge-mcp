@@ -13,27 +13,99 @@ final class Installer {
 
 	private const SETUP_DIR = 'inyfinn-cursor-bridge';
 
+	public const INSTALLED_VERSION_OPTION = 'inyfinn_cursor_bridge_installed_version';
+	public const LAST_RESULT_OPTION       = 'inyfinn_cursor_bridge_last_install_result';
+	public const REDIRECT_TRANSIENT       = 'inyfinn_cursor_bridge_activation_redirect';
+	private const RETRY_TRANSIENT         = 'inyfinn_cursor_bridge_install_retry';
+
 	/** @var bool */
 	private static $defer_conflict_deactivation = false;
 
 	public static function init(): void {
+		add_action( 'admin_init', array( __CLASS__, 'maybe_redirect_after_activation' ), 1 );
+		add_action( 'admin_init', array( __CLASS__, 'maybe_complete_install' ), 4 );
+		add_action( 'rest_api_init', array( __CLASS__, 'maybe_complete_install' ), 1 );
 		add_action( 'admin_init', array( __CLASS__, 'maybe_self_heal' ), 5 );
 		add_action( 'shutdown', array( __CLASS__, 'run_deferred_conflict_deactivation' ), 1 );
 	}
 
 	/**
-	 * Usuń stare kopie wtyczki (np. *.off) — wywoływane przy każdym boot.
+	 * Install/upgrade entry point. Records the result (no secrets) and marks the
+	 * version as installed only on success, so a failed install is retried.
+	 *
+	 * @param string $trigger activation|manual|admin|rest.
+	 * @return array<string, mixed>
 	 */
-	public static function cleanup_duplicate_installations(): void {
-		self::remove_duplicate_plugin_directories();
+	public static function run_install( string $trigger ): array {
+		// Plik z sekretami tylko przy Włącz albo gdy hasła jeszcze nie ma — upgrade nie odtwarza pliku, który user skasował.
+		$write_setup = in_array( $trigger, array( 'activation', 'manual' ), true ) || ! Credentials::has_stored_application_password();
+		$result      = self::full_bootstrap( true, $write_setup );
+		$version     = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '';
+
+		update_option(
+			self::LAST_RESULT_OPTION,
+			array(
+				'ok'      => ! empty( $result['ok'] ),
+				'errors'  => $result['errors'] ?? array(),
+				'trigger' => $trigger,
+				'version' => $version,
+				'at'      => gmdate( 'c' ),
+			),
+			false
+		);
+
+		if ( ! empty( $result['ok'] ) ) {
+			update_option( self::INSTALLED_VERSION_OPTION, $version, true );
+			delete_transient( self::RETRY_TRANSIENT );
+		} else {
+			set_transient( self::RETRY_TRANSIENT, 1, 10 * MINUTE_IN_SECONDS );
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Activation hook does not fire on update (GitHub updater, FTP, git pull) nor
+	 * retry after a failure. Finish the install on the first admin or REST request
+	 * made by an administrator (REST covers agents using an application password).
+	 */
+	public static function maybe_complete_install(): void {
+		$version = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '';
+		if ( get_option( self::INSTALLED_VERSION_OPTION, '' ) === $version ) {
+			return;
+		}
+		if ( doing_action( 'activate_plugin' ) || get_transient( self::RETRY_TRANSIENT ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		self::run_install( doing_action( 'rest_api_init' ) ? 'rest' : 'admin' );
+	}
+
+	public static function maybe_redirect_after_activation(): void {
+		if ( ! get_transient( self::REDIRECT_TRANSIENT ) ) {
+			return;
+		}
+		delete_transient( self::REDIRECT_TRANSIENT );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only flag set by WP core.
+		if ( wp_doing_ajax() || is_network_admin() || isset( $_GET['activate-multi'] ) || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		wp_safe_redirect( admin_url( 'options-general.php?page=inyfinn-cursor-bridge' ) );
+		exit;
 	}
 
 	/**
 	 * Full bootstrap — activation hook and MCP ability.
 	 *
+	 * @param bool $write_setup Write cursor-setup.json (contains secrets).
 	 * @return array<string, mixed>
 	 */
-	public static function full_bootstrap( bool $rotate_password = true ): array {
+	public static function full_bootstrap( bool $rotate_password = true, bool $write_setup = true ): array {
 		Credentials::register_application_password_filters();
 		Credentials::maybe_consume_manual_pass_file();
 
@@ -50,7 +122,10 @@ final class Installer {
 			'permalink_flush' => self::flush_permalinks(),
 		);
 
-		if ( ! empty( $app_password['ok'] ) ) {
+		if ( ! $write_setup ) {
+			$results['setup_file'] = array( 'ok' => true, 'skipped' => true, 'message' => 'Upgrade — plik setup nie jest odtwarzany.' );
+			$results['bundle']     = Credentials::build_cursor_bundle( false );
+		} elseif ( ! empty( $app_password['ok'] ) ) {
 			$bundle                 = Credentials::build_cursor_bundle( true, $app_password );
 			$results['setup_file']  = self::write_setup_file( $bundle );
 			$results['bundle']      = $bundle;
@@ -114,7 +189,7 @@ final class Installer {
 		if ( get_transient( 'inyfinn_cursor_bridge_self_heal' ) ) {
 			return;
 		}
-		set_transient( 'inyfinn_cursor_bridge_self_heal', 1, HOUR_IN_SECONDS );
+		set_transient( 'inyfinn_cursor_bridge_self_heal', 1, 10 * MINUTE_IN_SECONDS );
 
 		$healed = false;
 
@@ -283,69 +358,36 @@ final class Installer {
 	}
 
 	/**
-	 * Usuń kopie zapasowe / stare foldery wtyczki (np. inyfinn-cursor-bridge-mcp-1.3.1.off).
+	 * Dezaktywuj kopie wtyczki w innych folderach (np. inyfinn-cursor-bridge-mcp-1.3.1).
+	 * Nie kasuje katalogów — stała INYFINN_CURSOR_BRIDGE_MCP_LOADED i tak blokuje podwójne ładowanie.
 	 *
-	 * @return list<string> Usunięte ścieżki katalogów.
+	 * @return list<string> Dezaktywowane foldery.
 	 */
 	private static function remove_duplicate_plugin_directories(): array {
-		$removed = array();
-		$canonical = 'inyfinn-cursor-bridge-mcp';
+		$deactivated = array();
+		$canonical   = dirname( plugin_basename( INYFINN_CURSOR_BRIDGE_MCP_FILE ) );
 		$plugin_root = defined( 'WP_PLUGIN_DIR' ) ? WP_PLUGIN_DIR : '';
 
-		if ( '' === $plugin_root || ! is_dir( $plugin_root ) ) {
-			return $removed;
+		if ( '' === $plugin_root || ! is_dir( $plugin_root ) || ! function_exists( 'deactivate_plugins' ) ) {
+			return $deactivated;
 		}
 
 		$matches = glob( trailingslashit( $plugin_root ) . 'inyfinn-cursor-bridge-mcp*', GLOB_ONLYDIR );
 		if ( ! is_array( $matches ) ) {
-			return $removed;
+			return $deactivated;
 		}
 
 		foreach ( $matches as $dir ) {
 			$basename = basename( $dir );
-			if ( $basename === $canonical ) {
+			$plugin   = $basename . '/inyfinn-cursor-bridge-mcp.php';
+			if ( $basename === $canonical || ! is_plugin_active( $plugin ) ) {
 				continue;
 			}
-
-			$plugin_file = trailingslashit( $dir ) . 'inyfinn-cursor-bridge-mcp.php';
-			if ( is_readable( $plugin_file ) && function_exists( 'deactivate_plugins' ) ) {
-				deactivate_plugins( $basename . '/inyfinn-cursor-bridge-mcp.php', true );
-			}
-
-			if ( self::delete_directory( $dir ) ) {
-				$removed[] = $basename;
-			}
+			deactivate_plugins( $plugin, true );
+			$deactivated[] = $basename;
 		}
 
-		return $removed;
-	}
-
-	/**
-	 * @param string $dir Absolute path.
-	 */
-	private static function delete_directory( string $dir ): bool {
-		if ( ! is_dir( $dir ) ) {
-			return false;
-		}
-
-		$items = scandir( $dir );
-		if ( ! is_array( $items ) ) {
-			return false;
-		}
-
-		foreach ( $items as $item ) {
-			if ( '.' === $item || '..' === $item ) {
-				continue;
-			}
-			$path = $dir . DIRECTORY_SEPARATOR . $item;
-			if ( is_dir( $path ) ) {
-				self::delete_directory( $path );
-			} else {
-				wp_delete_file( $path );
-			}
-		}
-
-		return @rmdir( $dir );
+		return $deactivated;
 	}
 
 	private static function should_defer_conflict_deactivation(): bool {

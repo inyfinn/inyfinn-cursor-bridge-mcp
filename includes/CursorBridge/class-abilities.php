@@ -423,10 +423,9 @@ final class Abilities {
 					),
 				),
 				'output_schema'       => array( 'type' => 'object' ),
-				'execute_callback'    => static function ( $input = array() ): array {
-					$input  = is_array( $input ) ? $input : array();
-					$rotate = ! empty( $input['rotate_password'] );
-					return Installer::full_bootstrap( $rotate );
+				// rotate_password zostaje w schemacie dla zgodności; hasło rotuje się tylko, gdy wtyczka nie ma kopii.
+				'execute_callback'    => static function (): array {
+					return Installer::run_install( 'manual' );
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta( false ),

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.6.7 — 2026-09-22
+
+### Fixed
+- Instalacja nie zależy już wyłącznie od hooka aktywacji. Po aktualizacji (GitHub updater, FTP, git pull) albo po nieudanej instalacji wtyczka kończy ją sama przy pierwszym żądaniu administratora w panelu **lub przez REST/MCP** (hasło aplikacji). Wersja jest oznaczana jako zainstalowana dopiero po sukcesie; porażka = ponowna próba po 10 min.
+- Po kliknięciu Włącz: jednorazowe przekierowanie do Ustawienia → Cursor Bridge, gdzie widać wynik instalacji.
+- Nieudana instalacja pokazuje błąd z listą kroków w panelu (wcześniej wynik aktywacji był odrzucany, a flaga `bootstrapped` ustawiana nawet przy porażce).
+- Brak Abilities API (WP < 6.9) = czytelny komunikat w panelu zamiast cichego braku narzędzi MCP.
+- Self-heal blokował ponowną próbę na godzinę; teraz 10 min.
+
+### Changed
+- Kopie wtyczki w innych folderach są tylko dezaktywowane, **nie kasowane** (wcześniej rekurencyjne usuwanie katalogów przy każdym żądaniu).
+- Przycisk Auto-setup, ability `run-auto-setup` i repair `full_bootstrap` idą przez `Installer::run_install()` i aktualizują status instalacji.
+
 ## 1.6.6 — 2026-09-14
 
 ### Added
