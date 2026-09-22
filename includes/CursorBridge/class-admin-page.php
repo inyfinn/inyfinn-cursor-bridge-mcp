@@ -77,6 +77,8 @@ final class Admin_Page {
 				)
 			);
 
+			update_option( Abilities::ALLOW_FILE_WRITE_OPTION, ! empty( $_POST['allow_file_write'] ), false );
+
 			if ( ! empty( $_POST['app_password_manual'] ) ) {
 				$store = Credentials::store_application_password( (string) wp_unslash( $_POST['app_password_manual'] ) );
 				if ( empty( $store['ok'] ) ) {
@@ -602,6 +604,18 @@ final class Admin_Page {
 						<th><label for="ftp_remote_path">FTP_REMOTE_PATH</label></th>
 						<td><input name="ftp_remote_path" id="ftp_remote_path" class="large-text" value="<?php echo esc_attr( $conn['ftp_remote_path'] ); ?>" /></td>
 					</tr>
+					<?php if ( defined( 'DISALLOW_FILE_EDIT' ) && DISALLOW_FILE_EDIT ) : ?>
+					<tr>
+						<th><?php esc_html_e( 'Zapis plików przez MCP', 'inyfinn-cursor-bridge-mcp' ); ?></th>
+						<td>
+							<label>
+								<input name="allow_file_write" type="checkbox" value="1" <?php checked( (bool) get_option( Abilities::ALLOW_FILE_WRITE_OPTION, false ) || ( defined( 'INYFINN_BRIDGE_ALLOW_FILE_WRITE' ) && INYFINN_BRIDGE_ALLOW_FILE_WRITE ) ); ?> <?php disabled( defined( 'INYFINN_BRIDGE_ALLOW_FILE_WRITE' ) ); ?> />
+								<?php esc_html_e( 'Zapis plików przez MCP mimo DISALLOW_FILE_EDIT', 'inyfinn-cursor-bridge-mcp' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'wp-config.php blokuje edytor plików w panelu. Bez FTP to jedyna droga, by agent zmienił CSS lub PHP motywu. Włączaj tylko, jeśli ufasz osobom z hasłem aplikacji MCP.', 'inyfinn-cursor-bridge-mcp' ); ?></p>
+						</td>
+					</tr>
+					<?php endif; ?>
 				</table>
 				<p class="submit">
 					<button type="submit" name="inyfinn_cursor_bridge_save" class="button button-secondary"><?php esc_html_e( 'Zapisz i odśwież cursor-setup.json', 'inyfinn-cursor-bridge-mcp' ); ?></button>
