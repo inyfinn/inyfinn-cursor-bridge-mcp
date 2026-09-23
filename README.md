@@ -1,7 +1,7 @@
 # Inyfinn Cursor Bridge MCP
 
 **Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp  
-**Wersja:** 1.7.1  
+**Wersja:** 1.7.2  
 **Licencja:** GPL-2.0-or-later
 
 Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).
@@ -20,7 +20,7 @@ Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z w
 | Application Password | Automatyczne hasło „Cursor MCP (Inyfinn)” dla admina |
 | `cursor-setup.json` | Plik konfiguracyjny dla agenta Cursor (SFTP workspace) |
 | Bundle `.env` + `mcp.json` | DB z `wp-config`, MCP endpoint, brakujące pola SSH |
-| 19 abilities MCP | Ping, manifest, pliki, WooCommerce, health-check, repair |
+| 40 abilities MCP | Ping, manifest, pliki, WooCommerce, health-check, repair, edycja Elementora, duplikacja stron |
 | Panel diagnostyczny | **Ustawienia → Cursor Bridge** — testy + przyciski Napraw |
 | Hardening | SVG, unikalne nazwy uploadów, `/logowanie`, limity PHP — z backupem i ochroną przed duplikatami |
 
@@ -86,7 +86,7 @@ W Cursorze (po skonfigurowaniu MCP):
 |------|------------------|
 | `cursor-bridge/ping` | `ok: true`, `bridge_version: "1.2.0"` |
 | `cursor-bridge/health-check` | `healthy: true`, `failed_count: 0` |
-| discover-abilities | ≥19 pozycji `cursor-bridge/*` |
+| discover-abilities | ≥40 pozycji `cursor-bridge/*` |
 
 Szczegóły: [docs/INSTALLATION.md](docs/INSTALLATION.md)
 
@@ -110,7 +110,7 @@ Odpowiedź:
 {
   "ok": true,
   "bridge_version": "1.2.0",
-  "public_abilities": 19
+  "public_abilities": 40
 }
 ```
 
@@ -145,10 +145,15 @@ Odpowiedź: `"healthy": true`, `"overall": "ok"`.
 | `run-auto-setup` | Pełny bootstrap |
 | `get-cursor-bundle` | mcp.json + .env + sekrety (admin) |
 | `get-site-manifest` | Kontekst strony bez sekretów |
-| `write-wp-content-file` | Zapis pliku w wp-content |
+| `write-wp-content-file` | Zapis pliku w wp-content (też `content_base64`) |
 | `read-wp-content-file` | Odczyt pliku (max 512 KB) |
+| `delete-wp-content-file` | Odwracalne usunięcie pliku (kosz mostu) |
 | `list-plugins` / `list-themes` | Audyt |
 | `wc-list-products` / `wc-list-orders` | WooCommerce |
+| `elementor-duplicate-post` / `elementor-clone-element` | Duplikacja strony / kopiuj-wklej elementu |
+| `media-sideload` | Import zdjęć z URL do biblioteki mediów |
+| `get-post-meta` / `set-post-meta` | Ustrukturyzowana meta (serializowane dane) z kopią zapasową |
+| `find-references` / `find-similar-pages` | Gdzie strona jest wskazywana / rodzina szablonu |
 
 Pełna lista: [docs/ABILITIES.md](docs/ABILITIES.md)
 

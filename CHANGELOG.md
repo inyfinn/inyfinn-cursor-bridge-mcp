@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.7.2 — 2026-09-23
+
+### Fixed
+- **KRYTYCZNE: nieskończona rekurencja → wyczerpana pamięć PHP → „critical error" na całej stronie**, na każdej witrynie bez `https` w adresie (lokalnie, staging, WordPress Playground, w trakcie przywracania z kopii). Łańcuch: filtr `wp_is_application_passwords_available` → `Credentials::should_force_application_passwords` → `count_any_privileged_application_passwords` → `get_privileged_user_ids` → `get_current_user_id` → `determine_current_user` → `wp_validate_application_password` → `wp_is_application_passwords_available` → od nowa. Odtworzone na 1.7.1 w WordPress Playground (WP 7.1.2, PHP 8.3). Naprawa: blokada ponownego wejścia (re-entrancy guard) w `should_force_application_passwords` (`class-credentials.php`). Możliwa (niepotwierdzona) przyczyna błędu krytycznego na liquidjungle.pl 10.09.2026 w trakcie przywracania z kopii, po którym wtyczkę uśpiono przez `return;` na początku pliku.
+- Diagnostyka `setup_file`: brak `cursor-setup.json` był ostrzeżeniem, a naprawa odtwarzała plik z hasłem aplikacji, mimo że po podłączeniu edytora plik powinien zniknąć. Teraz pierwszy `ping`/`verify-connection` zapamiętuje połączenie agenta (opcja `inyfinn_cursor_bridge_agent_connected`); plik obecny po połączeniu = ostrzeżenie z akcją naprawy `remove_setup_file`; plik nieobecny po połączeniu = ok.
+- Schemat wartości `set-post-meta` bez `type` powodował ostrzeżenia PHP przy walidacji — dodany zbiór dopuszczalnych typów (`object`/`array`/`string`/`number`/`integer`/`boolean`/`null`).
+
+### Added — narzędzia treści (bez tymczasowego mu-plugina)
+- `elementor-duplicate-post` `{post_id, title, slug, status, patches}` — duplikat strony Elementora jak wtyczka Duplicate Page: cała meta poza cache/kopiami danego wpisu, terminy, świeże id elementów, `patches` po ORYGINALNYCH id elementów, `post_content` puste, flaga `slug_changed`.
+- `elementor-clone-element` `{post_id, element_id, source_post_id?, after_id?, parent_id?, position?, patches?, dry_run?}` — kopiuj/wklej element wraz z dziećmi i ustawieniami (także z innej strony) = „wklej styl”; zwraca `id_map`; idzie przez to samo `save()` co `elementor-patch-element` (kopia, weryfikacja, odmowa przy spadku rozmiaru > 20%, czyszczenie cache).
+- `media-sideload` `{urls[≤20], name, title, parent}` — import do biblioteki mediów, zwraca id/url gotowe do ustawień Elementora.
+- `get-post-meta` / `set-post-meta` — ustrukturyzowana (serializowana) meta, np. `map_info` wtyczki MapGeo; kopie zapasowe `_inyfinn_meta_backup_<key>_<ts>` (ostatnie 5); odmowa dla rewizji i `_elementor_data`.
+- `db-write-probe` — zapis/odczyt/kasowanie tymczasowej opcji jako dowód, że baza przyjmuje zapisy.
+- `delete-wp-content-file` — przenosi plik do `wp-content/inyfinn-cursor-bridge/trash/<data>/<ścieżka>`; katalog kosza zablokowany dla odczytu/zapisu/kasowania przez MCP (może trzymać usunięty `cursor-setup.json`).
+- `write-wp-content-file`: nowy parametr `content_base64` — niektóre WAF-y hostingu (nginx home.pl) zwracają gołe HTML „400 Bad Request” dla treści PHP.
+- `find-references` `{post_id}` — każde miejsce wskazujące na stronę (URL w Elementorze lub dynamiczny tag internal-url z wierszami rodzica, meta innych wpisów, `post_content`, menu, opcje).
+- `find-similar-pages` `{post_id, min_similarity=80}` — rodzina stron o tej samej strukturze Elementora, od najnowszej.
+- Akcja naprawy `remove_setup_file`.
+- Playbook agenta: nowe workflowy `add_from_template` i `environment` (limit połączeń FTP, uśpiona wtyczka przez `return;`, `.env` poza katalogiem web root).
+
+Test bez WordPressa: `php tests/elementor-tree-check.php` (17 sprawdzeń). Zweryfikowane integracyjnie w WordPress Playground (WP 7.1.2, Elementor 4.3.0, PHP 8.3) — wszystkie nowe abilities wykonane przez `wp_get_ability()->execute()`.
+
+Źródło: prawdziwa sesja 22.09.2026 na liquidjungle.pl — dodanie 3 sklepów wymagało ręcznie wgranego tymczasowego mu-plugina robiącego to wszystko.
+
 ## 1.7.1 — 2026-09-22
 
 ### Fixed

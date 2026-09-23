@@ -23,7 +23,17 @@ final class File_Reader {
 			'inyfinn-cursor-bridge/cursor-setup.json',
 			// Hardening backups hold full copies of wp-config.php (DB password, auth keys).
 			'inyfinn-cursor-bridge/backups/',
+			// Bridge trash may hold a removed cursor-setup.json.
+			'inyfinn-cursor-bridge/trash/',
+			// These two files keep the whole bridge directory closed to the web (Deny from all).
+			'inyfinn-cursor-bridge/.htaccess',
+			'inyfinn-cursor-bridge/index.php',
 		);
+	}
+
+	/** Secrets and backups that MCP file tools must not read, write or remove. */
+	public static function is_protected( string $relative ): bool {
+		return self::is_blocked_path( $relative );
 	}
 
 	private static function is_blocked_path( string $relative ): bool {
@@ -214,7 +224,7 @@ final class File_Reader {
 		}
 
 		if ( self::is_blocked_path( $relative ) ) {
-			return new \WP_Error( 'blocked', 'Use run-auto-setup to regenerate setup file.' );
+			return new \WP_Error( 'blocked', 'Protected bridge file (setup secrets, wp-config backups, trash or the directory protection). Setup file: run-auto-setup / repair {action:"remove_setup_file"}.' );
 		}
 
 		$absolute = WP_CONTENT_DIR . '/' . $relative;

@@ -30,6 +30,26 @@ Przykład — ukrycie sekcji na telefonie zamiast kasowania:
 
 ---
 
+## Narzędzia treści i odkrywanie (1.7.2)
+
+Zastępują tymczasowy mu-plugin ręcznie wgrywany przy dodawaniu kolejnej strony wg wzorca (np. nowego sklepu).
+
+| Ability | Wejście | Do czego |
+|---------|---------|----------|
+| `elementor-duplicate-post` | `post_id`, `title`, `slug`, `status`, `patches` | Duplikat strony Elementora jak Duplicate Page: cała meta, terminy, nowe id elementów, `patches` po ORYGINALNYCH id, `post_content` puste. |
+| `elementor-clone-element` | `post_id`, `element_id`, `source_post_id`, `after_id`, `parent_id`, `position`, `patches`, `dry_run` | Kopiuj/wklej element (też z innej strony) wraz z dziećmi i ustawieniami; zwraca `id_map`. Ta sama bezpieczna ścieżka zapisu co `elementor-patch-element`. |
+| `media-sideload` | `urls` (≤20), `name`, `title`, `parent` | Import z URL do biblioteki mediów; zwraca id/url gotowe do ustawień obrazu/galerii Elementora. |
+| `get-post-meta` | `post_id`, `key` | Zdekodowana wartość meta (serializowane dane jako JSON) + jej kopie zapasowe mostu. |
+| `set-post-meta` | `post_id`, `key`, `value` | Zamiana wartości meta na dowolny typ JSON; kopia zapasowa (ostatnie 5), odmowa dla rewizji i `_elementor_data`. |
+| `db-write-probe` | — | Dowód, że baza przyjmuje zapisy: zapis/odczyt/kasowanie tymczasowej opcji. |
+| `delete-wp-content-file` | `path` | Odwracalne usunięcie: plik trafia do `wp-content/inyfinn-cursor-bridge/trash/<data>/<ścieżka>`. |
+| `find-references` | `post_id` | Każde miejsce wskazujące na stronę: elementy Elementora, meta innych wpisów, `post_content`, menu, opcje. |
+| `find-similar-pages` | `post_id`, `min_similarity` (domyślnie 80) | Strony o tej samej strukturze Elementora ("rodzina" szablonu), od najnowszej. |
+
+`write-wp-content-file` przyjmuje też `content_base64` — gdy WAF hostingu blokuje treść PHP/JS wysłaną jako zwykły tekst.
+
+---
+
 ## Diagnostyka i setup
 
 ### `cursor-bridge/ping`
@@ -42,7 +62,7 @@ Health check. Uprawnienie: `read`.
   "ok": true,
   "bridge_version": "1.2.0",
   "mcp_adapter": "1.2.0",
-  "public_abilities": 19
+  "public_abilities": 40
 }
 ```
 
@@ -150,4 +170,4 @@ W Cursorze po połączeniu MCP:
 discover abilities
 ```
 
-Oczekiwane: 19 abilities `cursor-bridge/*` (v1.2.0).
+Oczekiwane: min. 40 abilities `cursor-bridge/*`.
