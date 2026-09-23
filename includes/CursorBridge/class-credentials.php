@@ -135,11 +135,25 @@ final class Credentials {
 	}
 
 	private static function should_force_application_passwords(): bool {
+		// Re-entrancy guard. Counting passwords reads the current user; on a site without an
+		// https URL (local, staging, restore in progress) that runs determine_current_user →
+		// wp_validate_application_password → wp_is_application_passwords_available → here
+		// again, until PHP runs out of memory and the whole site shows a critical error.
+		static $busy = false;
+		if ( $busy ) {
+			return false;
+		}
 		if ( self::site_uses_https() || self::wordpress_urls_use_https() ) {
 			return true;
 		}
 
-		if ( self::count_any_privileged_application_passwords() > 0 ) {
+		$busy = true;
+		try {
+			$has_passwords = self::count_any_privileged_application_passwords() > 0;
+		} finally {
+			$busy = false;
+		}
+		if ( $has_passwords ) {
 			return true;
 		}
 

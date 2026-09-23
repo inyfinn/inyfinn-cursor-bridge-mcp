@@ -62,7 +62,7 @@ final class Health {
 				'1. W Cursorze: Settings → MCP → serwer WordPress połączony',
 				'2. W chacie: „cursor-bridge/ping” lub „wywołaj cursor-bridge/ping przez MCP”',
 				'3. Oczekiwany wynik: ok:true, bridge_version zgodny z panelem',
-				'4. discover-abilities: lista zawiera cursor-bridge/* (min. 17)',
+				'4. discover-abilities: lista zawiera cursor-bridge/* (min. 40)',
 			),
 			'timestamp'      => gmdate( 'c' ),
 		);
@@ -122,6 +122,11 @@ final class Health {
 				break;
 			case 'file_edit':
 				$result = Installer::enable_file_edit();
+				break;
+			case 'remove_setup_file':
+				$result = is_readable( Installer::setup_file_path() )
+					? Content_Tools::trash_file( Installer::setup_file_relative(), true )
+					: array( 'ok' => true, 'message' => 'Plik już nie istnieje.' );
 				break;
 			case 'full_bootstrap':
 				$result = Installer::run_install( 'manual' );
@@ -270,16 +275,46 @@ final class Health {
 	 * @return array<string, mixed>
 	 */
 	private static function check_setup_file(): array {
-		$path = Installer::setup_file_path();
-		$ok   = is_readable( $path );
+		$path      = Installer::setup_file_path();
+		$present   = is_readable( $path );
+		$connected = (string) get_option( self::AGENT_CONNECTED_OPTION, '' );
 
+		// The file carries the application password. Needed only until the editor is connected.
+		if ( $present && '' !== $connected ) {
+			return array(
+				'id'            => 'setup_file',
+				'label'         => 'cursor-setup.json',
+				'status'        => 'warning',
+				'message'       => 'Agent połączył się ' . $connected . ' — plik z hasłem aplikacji nie jest już potrzebny. repair {action:"remove_setup_file"} przeniesie go do kosza mostu.',
+				'repair_action' => 'remove_setup_file',
+			);
+		}
+		if ( ! $present && ( '' !== $connected || Credentials::has_stored_application_password() ) ) {
+			return array(
+				'id'            => 'setup_file',
+				'label'         => 'cursor-setup.json',
+				'status'        => 'ok',
+				'message'       => 'Brak pliku — dobrze po podłączeniu. Dane dla nowego edytora: cursor-bridge/get-cursor-bundle.',
+				'repair_action' => null,
+			);
+		}
 		return array(
 			'id'            => 'setup_file',
 			'label'         => 'cursor-setup.json',
-			'status'        => $ok ? 'ok' : 'warning',
-			'message'       => $ok ? $path : 'Plik nie istnieje — Cursor nie odczyta konfiguracji z SFTP',
-			'repair_action' => $ok ? null : 'setup_file',
+			'status'        => $present ? 'ok' : 'warning',
+			'message'       => $present ? $path : 'Plik nie istnieje — Cursor nie odczyta konfiguracji z SFTP',
+			'repair_action' => $present ? null : 'setup_file',
 		);
+	}
+
+	public const AGENT_CONNECTED_OPTION = 'inyfinn_cursor_bridge_agent_connected';
+
+	/** First authenticated ping / verify-connection from an agent. */
+	public static function mark_agent_connected(): void {
+		// Only an administrator's call proves the editor is set up (ping is open to any logged-in user).
+		if ( current_user_can( 'manage_options' ) && '' === (string) get_option( self::AGENT_CONNECTED_OPTION, '' ) ) {
+			update_option( self::AGENT_CONNECTED_OPTION, gmdate( 'Y-m-d H:i' ) . ' UTC', false );
+		}
 	}
 
 	/**

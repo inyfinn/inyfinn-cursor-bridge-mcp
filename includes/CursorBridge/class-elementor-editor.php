@@ -256,6 +256,152 @@ final class Elementor_Editor {
 		return array_merge( self::save( $post_id, $doc['raw'], $data, false ), array( 'restored_from' => $backup_key ) );
 	}
 
+	/** Meta that belongs to one post only and must not travel with a duplicate. */
+	private const DUPLICATE_SKIP_META = array( '_edit_lock', '_edit_last', '_elementor_data', '_elementor_css', '_elementor_element_cache', '_elementor_page_assets', '_elementor_data_bckp', '_wp_old_slug', '_wp_trash_meta_status', '_wp_trash_meta_time' );
+
+	/**
+	 * Copy one element (with all children and settings) and insert the copy — the same as
+	 * copy/paste in the editor. Source may be another post ("copy the container from the
+	 * shop page, paste on the home page"). Patches are keyed by SOURCE element ids and are
+	 * applied to the copy before it gets new ids.
+	 *
+	 * @param array<string, mixed> $opts source_post_id, after_id, parent_id, position, patches, dry_run
+	 * @return array<string, mixed>
+	 */
+	public static function clone_element( int $post_id, string $element_id, array $opts = array() ): array {
+		$doc = self::load( $post_id );
+		if ( is_wp_error( $doc ) ) {
+			return self::error( $doc );
+		}
+		$source_id = (int) ( $opts['source_post_id'] ?? 0 );
+		$same_post = ! $source_id || $source_id === $post_id;
+		$source    = $same_post ? $doc : self::load( $source_id );
+		if ( is_wp_error( $source ) ) {
+			return self::error( $source );
+		}
+		$copy = Elementor_Tree::find( $source['data'], $element_id );
+		if ( null === $copy ) {
+			return self::not_found( $element_id );
+		}
+
+		$wrapped = array( $copy );
+		$missing = Elementor_Tree::apply_patches( $wrapped, is_array( $opts['patches'] ?? null ) ? $opts['patches'] : array() );
+		if ( $missing ) {
+			return array( 'ok' => false, 'error' => 'patch_target_not_found', 'missing' => $missing, 'message' => 'Patch keys must be ids of the SOURCE element or its children (see elementor-outline of the source post).' );
+		}
+
+		$data = $doc['data'];
+		$used = Elementor_Tree::collect_ids( $data ) + Elementor_Tree::collect_ids( $source['data'] );
+		$map  = array();
+		$new  = Elementor_Tree::reid( $wrapped[0], $used, $map );
+
+		$after  = (string) ( $opts['after_id'] ?? '' );
+		$parent = (string) ( $opts['parent_id'] ?? '' );
+		if ( '' === $after && '' === $parent && $same_post ) {
+			$after = $element_id; // default: paste right after the original
+		}
+		$inserted = '' !== $after
+			? Elementor_Tree::insert_after( $data, $after, $new )
+			: Elementor_Tree::insert_into( $data, $parent, $new, (int) ( $opts['position'] ?? -1 ) );
+		if ( ! $inserted ) {
+			return self::not_found( '' !== $after ? $after : $parent );
+		}
+
+		$result = array(
+			'new_id' => $new['id'],
+			'id_map' => $map,
+			'next'   => 'id_map = source id → id in the copy. Change the copy with elementor-patch-element; hide unused slots with hide_desktop/hide_tablet/hide_mobile instead of deleting them.',
+		);
+		if ( ! empty( $opts['dry_run'] ) ) {
+			return array_merge( array( 'ok' => true, 'dry_run' => true, 'before_bytes' => strlen( $doc['raw'] ), 'after_bytes' => strlen( (string) wp_json_encode( $data ) ) ), $result );
+		}
+		return array_merge( self::save( $post_id, $doc['raw'], $data, true ), $result );
+	}
+
+	/**
+	 * Duplicate an Elementor page/post (like the Duplicate Page plugin): all meta except the
+	 * per-post caches, fresh element ids, optional element patches (keyed by SOURCE ids).
+	 *
+	 * @param array<string, mixed> $opts title, slug, status (draft|publish|private), patches
+	 * @return array<string, mixed>
+	 */
+	public static function duplicate_post( int $post_id, array $opts = array() ): array {
+		$doc = self::load( $post_id );
+		if ( is_wp_error( $doc ) ) {
+			return self::error( $doc );
+		}
+		$data    = $doc['data'];
+		$missing = Elementor_Tree::apply_patches( $data, is_array( $opts['patches'] ?? null ) ? $opts['patches'] : array() );
+		if ( $missing ) {
+			return array( 'ok' => false, 'error' => 'patch_target_not_found', 'missing' => $missing, 'message' => 'Nothing was created. Patch keys must be element ids of the source post.' );
+		}
+		$used = array();
+		$map  = array();
+		foreach ( $data as $i => $el ) {
+			if ( is_array( $el ) ) {
+				$data[ $i ] = Elementor_Tree::reid( $el, $used, $map );
+			}
+		}
+
+		$src    = $doc['post'];
+		$status = in_array( $opts['status'] ?? '', array( 'draft', 'publish', 'private', 'pending' ), true ) ? (string) $opts['status'] : 'draft';
+		$new_id = wp_insert_post(
+			wp_slash(
+				array(
+					'post_type'      => $src->post_type,
+					'post_status'    => $status,
+					'post_title'     => (string) ( $opts['title'] ?? $src->post_title . ' (kopia)' ),
+					'post_name'      => sanitize_title( (string) ( $opts['slug'] ?? '' ) ),
+					'post_author'    => get_current_user_id() ? get_current_user_id() : (int) $src->post_author,
+					'post_content'   => '', // Elementor renders from _elementor_data; old text here would leak into search/RSS.
+					'post_excerpt'   => '',
+					'post_parent'    => (int) $src->post_parent,
+					'menu_order'     => (int) $src->menu_order,
+					'comment_status' => $src->comment_status,
+					'ping_status'    => $src->ping_status,
+				)
+			),
+			true
+		);
+		if ( is_wp_error( $new_id ) ) {
+			return self::error( $new_id );
+		}
+
+		foreach ( (array) get_post_meta( $post_id ) as $key => $values ) {
+			if ( in_array( $key, self::DUPLICATE_SKIP_META, true ) || 0 === strpos( (string) $key, self::BACKUP_PREFIX ) ) {
+				continue;
+			}
+			foreach ( (array) $values as $value ) {
+				add_post_meta( $new_id, (string) $key, wp_slash( maybe_unserialize( $value ) ) );
+			}
+		}
+		foreach ( get_object_taxonomies( $src->post_type ) as $tax ) {
+			$terms = wp_get_object_terms( $post_id, $tax, array( 'fields' => 'ids' ) );
+			if ( is_array( $terms ) && $terms ) {
+				wp_set_object_terms( $new_id, $terms, $tax );
+			}
+		}
+
+		$json = (string) wp_json_encode( $data );
+		update_post_meta( $new_id, '_elementor_data', wp_slash( $json ) );
+		$stored = (string) get_post_meta( $new_id, '_elementor_data', true );
+		$slug   = (string) get_post_field( 'post_name', $new_id );
+
+		return array(
+			'ok'           => is_array( json_decode( $stored, true ) ),
+			'post_id'      => $new_id,
+			'status'       => $status,
+			'slug'         => $slug,
+			'slug_changed' => isset( $opts['slug'] ) && '' !== (string) $opts['slug'] && sanitize_title( (string) $opts['slug'] ) !== $slug,
+			'url'          => get_permalink( $new_id ),
+			'source_bytes' => strlen( $doc['raw'] ),
+			'bytes'        => strlen( $stored ),
+			'id_map'       => $map,
+			'purged'       => self::purge_post( $new_id ),
+			'next'         => 'Check the copy: elementor-outline {post_id}. Open the url with ?nocache=<timestamp> and take a screenshot. Draft pages are visible only when logged in.',
+		);
+	}
+
 	/**
 	 * Find where a visible text really lives: Elementor elements, post_content,
 	 * other post meta, options and files of the active theme / mu-plugins.

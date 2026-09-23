@@ -269,7 +269,7 @@ final class Front_Overlays {
 			return;
 		}
 		$s       = self::settings();
-		$ver     = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.7.1';
+		$ver     = defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : '1.7.2';
 		$base    = plugin_dir_url( INYFINN_CURSOR_BRIDGE_MCP_FILE ) . 'assets/front/';
 		$dir     = plugin_dir_path( INYFINN_CURSOR_BRIDGE_MCP_FILE ) . 'assets/front/';
 		$css     = $dir . 'djacc-compact.css';
