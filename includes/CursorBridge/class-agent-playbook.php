@@ -67,6 +67,8 @@ final class Agent_Playbook {
 			'Site: WP ' . $f['wp_version'] . ', table prefix `' . $f['table_prefix'] . '`, theme `' . $f['theme'] . '`' . ( $f['child_theme'] ? ' (child of `' . $f['parent_theme'] . '` — edit only the child)' : '' ) . ', builder ' . $f['builder'] . ( $f['page_caches'] ? ', page cache: ' . implode( ', ', $f['page_caches'] ) : '' ) . ( $f['multilingual'] ? ', languages: ' . $f['multilingual'] . ' (each language is a separate post)' : '' ) . '.',
 			'Tools: call mcp-adapter-execute-ability with ability_name `cursor-bridge/<name>`. Unsure of parameters → mcp-adapter-get-ability-info first. Full rules: cursor-bridge/get-agent-playbook.',
 			'Start: cursor-bridge/verify-connection (ok:true = ready). Site overview: get-site-manifest, list-posts, list-plugins.',
+			'Channels: if you also have SSH to this host, prefer it for files, WP-CLI (wp ...), logs and backups; use this bridge for Elementor-safe edits, content search and cache purge. No SSH → this bridge first, FTP or a mounted drive last.',
+			'Hosting firewalls (ModSecurity, LiteSpeed) ban the whole office IP after request bursts (HTTP 429/403, connection reset, then SSH drops too): one call at a time, space browser checks, configure this MCP server only in the project that works on this site.',
 			'Find where a visible text lives: cursor-bridge/find-content {text} — returns Elementor element ids, post_content, meta, options and theme files.',
 			'Elementor pages: elementor-outline {post_id} → elementor-get-element → elementor-patch-element {post_id, element_id, settings, dry_run}. It skips revisions, backs up, verifies and purges cache for you. Undo: elementor-list-backups / elementor-restore-backup. Never write _elementor_data with raw SQL.',
 			'Hide, do not delete: patch settings hide_desktop / hide_tablet / hide_mobile = "hidden-desktop" / "hidden-tablet" / "hidden-mobile".',
@@ -118,6 +120,9 @@ final class Agent_Playbook {
 					'Shared hosting FTP often allows few parallel connections (home.pl: 10). Prefer the bridge over the mounted drive; one file operation at a time.',
 					'Plugin active but no /wp-json/mcp route and no cursor-bridge abilities: someone may have put "return;" at the top of the main plugin file to stop it. Update the plugin from its ZIP instead of editing that line.',
 					'Keep .env with database/app passwords outside the web root — a .env in public_html can be downloaded.',
+					'SSH available: do file edits, wp-cli, wp option/transient work and log reading over SSH (one connection, no request bursts); keep the bridge for Elementor patches with backups. Without SSH: bridge, then FTP/mounted drive.',
+					'IP banned by the hosting firewall (429/403/ERR_CONNECTION_RESET for every request): stop, wait, ask the host for an exception if it repeats. Browser checks can go through an SSH SOCKS tunnel (ssh -D <port> host) while the ban lasts.',
+					'A huge wp-content/debug.log (hundreds of MB) slows the site and fills the disk: with WP_DEBUG on production log only errors (drop E_DEPRECATED/E_NOTICE in a mu-plugin) and archive the old log.',
 				),
 				'verify'          => array(
 					'purge-caches after writes (Elementor CSS, element cache, object cache, page cache plugins).',
@@ -133,6 +138,7 @@ final class Agent_Playbook {
 				'Do not change slugs without a 301 redirect.',
 				'Irreversible or bulk change → ask the user for a full backup (All-in-One WP Migration / hosting panel) first.',
 				'Multilingual sites: every language version is its own post — change all of them.',
+				'WooCommerce with HPOS (orders in wc_orders): read and write order data through WC_Order (get_meta / update_meta_data / save), never update_post_meta, or the admin will not show it.',
 			),
 			'abilities' => array(
 				'verify-connection'          => 'Is the bridge ready (WordPress, DB, files, MCP REST, credentials)?',

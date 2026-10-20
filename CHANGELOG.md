@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.3 - 2026-10-20
+
+### Changed - playbook agenta (lekcje z ETA Innovations i kancelarii, 20.10.2026)
+- Instrukcje MCP: kolejność kanałów. Jest SSH: pliki, WP-CLI, logi i kopie przez SSH; most do bezpiecznych zmian Elementora, wyszukiwania treści i czyszczenia cache. Brak SSH: najpierw most, na końcu FTP albo dysk sieciowy.
+- Instrukcje MCP: zapora hostingu (ModSecurity, LiteSpeed) blokuje IP całego biura po serii zapytań (429/403, zerwane połączenia, potem także SSH). Jedno wywołanie naraz, odstępy między sprawdzeniami w przeglądarce, serwer MCP skonfigurowany tylko w projekcie tej strony.
+- Workflow `environment`: SSH jako pierwszy kanał, postępowanie przy blokadzie IP (tunel SOCKS przez SSH do zrzutów), za duży `debug.log`.
+- Reguła: WooCommerce z HPOS, dane zamówień tylko przez `WC_Order` (`update_meta_data` + `save`), nie przez `update_post_meta` (błąd z NIP-em niewidocznym w panelu zamówień ETA).
+
 ## 1.7.2 — 2026-09-23
 
 ### Fixed
