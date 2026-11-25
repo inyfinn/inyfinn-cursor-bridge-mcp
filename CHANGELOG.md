@@ -9,6 +9,19 @@
 - Wymagany WordPress 6.9+ (wymóg silnika 0.6+): nagłówek wtyczki, test w panelu, dane aktualizatora.
 - Silnik załadowany wcześniej przez inną wtyczkę (np. sieciowo aktywny oficjalny MCP Adapter) nie kończy się błędem krytycznym przy ponownej deklaracji `WP\MCP\Autoloader`.
 
+### Security - drogi dla obcych (agent MCP nadal ma pełny dostęp)
+- Kolejka plików (`wp-content/inyfinn-cursor-bridge/queue/*.json`) jest domyślnie wyłączona; wcześniej była przetwarzana na każdym żądaniu, także anonimowym. Włączenie: `define( 'INYFINN_CURSOR_BRIDGE_LOCAL_QUEUE', true );` w `wp-config.php`.
+- `cursor-bridge/ping` (REST i ability) oraz `get-site-manifest` wymagają uprawnienia `manage_options` (było `read`): konta bez uprawnień administratora nie dostają informacji o stronie.
+- Nagłówki `X-Forwarded-Proto` i `X-Forwarded-SSL` są brane pod uwagę tylko wtedy, gdy żądanie przyszło od proxy (adres loopback, prywatny lub zarezerwowany), albo gdy filtr `inyfinn_cursor_bridge_trust_forwarded_proto` zwróci `true`. Podrobiony nagłówek nie wymusza już trybu HTTPS.
+
+### Added - cofanie błędów
+- Dziennik wywołań: każde wywołanie `cursor-bridge/*` zapisuje jedną linię JSON (czas, użytkownik, ability, `ok`, czas w ms, skrót wejścia bez treści plików i stron) w `wp-content/inyfinn-cursor-bridge/audit.log`, rotacja po 1 MB do `audit.log.1`. Odczyt: nowe ability `cursor-bridge/audit-list` `{limit}` (tylko `manage_options`).
+- `write-wp-content-file`: nadpisywany plik jest najpierw kopiowany do kosza mostu (`wp-content/inyfinn-cursor-bridge/trash/<Ymd_His>/<ścieżka>`), ścieżka kopii w polu `backup` odpowiedzi (`null` dla nowego pliku). Gdy kopia się nie uda, plik nie jest nadpisywany.
+
+### Fixed
+- Komunikat testu „abilities” mówi o WordPress < 6.9 (było 6.8).
+- `tools/update-engine.sh` domyślnie pracuje w `<repo>/.work/engine-<wersja>` (nie w katalogu tymczasowym systemu); `.work/` w `.gitignore`.
+
 ## 1.7.3 - 2026-10-20
 
 ### Changed - playbook agenta (lekcje z ETA Innovations i kancelarii, 20.10.2026)

@@ -4,11 +4,13 @@
 #   tools/update-engine.sh <version> [work-dir]
 #
 # Engine = includes/* except includes/CursorBridge/, plus vendor/. These files must stay
-# byte-identical to the wordpress.org package. Our layer (main plugin file, includes/CursorBridge,
-# install/, tests/, docs/, assets/) is never touched. See docs/ENGINE.md.
+# byte-identical to the wordpress.org package. Our layer (includes/CursorBridge, install/, tests/,
+# docs/, assets/) is never touched; in the main plugin file only the constant
+# INYFINN_CURSOR_BRIDGE_ENGINE_VERSION is changed. See docs/ENGINE.md.
 #
 # Deletes nothing except tracked engine files missing from the new release (git rm, so
-# git keeps them). The downloaded ZIP stays in work-dir: remove it yourself when done.
+# git keeps them). The downloaded ZIP stays in work-dir (default <repo>/.work/engine-<version>,
+# ignored by git): remove it yourself when done.
 set -euo pipefail
 
 VERSION="${1:-}"
@@ -27,7 +29,7 @@ if [[ -n "$(git status --porcelain -- includes vendor "$MAIN")" ]]; then
 	exit 1
 fi
 
-WORK="${2:-$(mktemp -d)}"
+WORK="${2:-$REPO/.work/engine-$VERSION}"
 mkdir -p "$WORK"
 [[ -z "$(ls -A "$WORK")" ]] || { echo "Work dir must be empty: $WORK" >&2; exit 1; }
 

@@ -373,7 +373,7 @@ final class Health {
 				'id'            => 'abilities',
 				'label'         => 'Abilities cursor-bridge/*',
 				'status'        => 'error',
-				'message'       => 'wp_get_abilities() niedostępne — WordPress < 6.8?',
+				'message'       => 'wp_get_abilities() niedostępne — WordPress < 6.9?',
 				'repair_action' => null,
 			);
 		}

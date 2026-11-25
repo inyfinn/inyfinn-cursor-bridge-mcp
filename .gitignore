@@ -4,6 +4,7 @@ Thumbs.db
 .idea/
 .vscode/
 node_modules/
+.work/
 *.zip
 
 # --- secrets-lock (inyfinn) ---
