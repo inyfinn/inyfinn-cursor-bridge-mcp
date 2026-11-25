@@ -28,6 +28,9 @@ $sum  = Audit_Log::summarize_args(
 		'number' => 42,
 		'flag'   => true,
 		'none'   => null,
+		'path'         => 'themes/x.css',
+		'app_password' => 'abc',
+		'api_key'      => array( 1, 2 ),
 	)
 );
 $check( 'short string verbatim', 'themes/child/style.css' === $sum['short'] );
@@ -42,6 +45,7 @@ if ( function_exists( 'mb_strlen' ) ) { // WordPress always has it (polyfill); p
 $check( 'array -> array:3', 'array:3' === $sum['list'] );
 $check( 'number kept', 42 === $sum['number'] );
 $check( 'bool and null kept', true === $sum['flag'] && null === $sum['none'] );
+$check( 'secret-like keys -> ***', '***' === $sum['app_password'] && '***' === $sum['api_key'] && 'themes/x.css' === $sum['path'] );
 $check( 'non-array input -> empty', array() === Audit_Log::summarize_args( null ) );
 
 $file = __DIR__ . '/audit-log-check-' . getmypid() . '.tmp';

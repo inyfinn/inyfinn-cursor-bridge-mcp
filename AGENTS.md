@@ -40,7 +40,7 @@ Baza = `cursor-bridge/db-query` (wpdb na serwerze). **NIE** zdalny mariadb MCP.
 3. `curl -u "user:pass" -w "%{http_code}" URL/ping` — odczytaj body (Wordfence, Imunify, puste = WAF serwera)
 4. Wordfence: Firewall → whitelist IP; logi `wp-content/wflogs/`
 5. Panel hostingu (SEOHost): WAF domeny — niezależna warstwa od WordPress
-6. Workaround: Local Queue (`wp-content/inyfinn-cursor-bridge/queue/`)
+6. Workaround: Local Queue (`wp-content/inyfinn-cursor-bridge/queue/`); od 1.7.4 jest domyślnie wyłączona, włącza ją `define( 'INYFINN_CURSOR_BRIDGE_LOCAL_QUEUE', true );` w `wp-config.php`
 
 ## Polecenie użytkownika
 

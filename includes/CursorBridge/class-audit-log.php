@@ -98,7 +98,8 @@ final class Audit_Log {
 	}
 
 	/**
-	 * Short, safe summary of an ability input: scalar up to 80 chars as is, longer string as "len:<n>", array as "array:<n>".
+	 * Short, safe summary of an ability input: scalar up to 80 chars as is, longer string as "len:<n>", array as "array:<n>",
+	 * value of a key that looks like a secret (pass, secret, token, key, auth) as "***".
 	 * No WordPress needed (tests/audit-log-check.php).
 	 *
 	 * @param mixed $input Ability input.
@@ -110,7 +111,9 @@ final class Audit_Log {
 			return $out;
 		}
 		foreach ( $input as $key => $value ) {
-			if ( is_array( $value ) ) {
+			if ( 1 === preg_match( '/pass|secret|token|key|auth/i', (string) $key ) ) {
+				$out[ $key ] = '***';
+			} elseif ( is_array( $value ) ) {
 				$out[ $key ] = 'array:' . count( $value );
 			} elseif ( is_string( $value ) ) {
 				$length      = function_exists( 'mb_strlen' ) ? mb_strlen( $value, 'UTF-8' ) : strlen( $value );
