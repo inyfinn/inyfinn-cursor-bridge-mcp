@@ -2,8 +2,10 @@
 /**
  * Inyfinn Cursor Bridge MCP
  *
- * Fork MCP Adapter (WordPress 0.5.0) + wbudowane abilities, hosting profiles,
- * manifest i instrukcje dla Cursor IDE. Jedna wtyczka — bez osobnego kompaniona.
+ * Silnik: oficjalny WordPress MCP Adapter 0.7.2 bez zmian (includes/ poza
+ * CursorBridge + vendor/, patrz docs/ENGINE.md) + nasza warstwa includes/CursorBridge:
+ * abilities, hosting profiles, manifest i instrukcje dla Cursor IDE.
+ * Jedna wtyczka — bez osobnego kompaniona.
  *
  * @package Inyfinn_Cursor_Bridge_MCP
  * @license GPL-2.0-or-later
@@ -12,7 +14,7 @@
  * Plugin Name:       Inyfinn Cursor Bridge MCP
  * Plugin URI:        https://github.com/inyfinn/inyfinn-cursor-bridge-mcp
  * Description:       MCP Adapter + Cursor abilities (SSH/WP-CLI setup guides, site manifest, WooCommerce). Uruchamiane z Cursor IDE przez @automattic/mcp-wordpress-remote.
- * Requires at least: 6.8
+ * Requires at least: 6.9
  * Version:           1.7.3
  * Requires PHP:      7.4
  * Author:            Inyfinn
@@ -40,11 +42,10 @@ define( 'INYFINN_CURSOR_BRIDGE_MCP_LOADED', true );
  */
 if ( ! function_exists( __NAMESPACE__ . '\\inyfinn_cursor_bridge_mcp_constants' ) ) {
 	function inyfinn_cursor_bridge_mcp_constants(): void {
-		if ( ! defined( 'WP_MCP_DIR' ) ) {
-			define( 'WP_MCP_DIR', plugin_dir_path( __FILE__ ) );
-		}
-		if ( ! defined( 'WP_MCP_VERSION' ) ) {
-			define( 'WP_MCP_VERSION', '1.7.3' );
+		// WP_MCP_DIR and WP_MCP_VERSION belong to the engine: Autoloader::autoload() and Plugin::constants()
+		// define them without a defined() check, so defining them here would raise "already defined" warnings.
+		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION' ) ) {
+			define( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION', '0.7.2' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ) {
 			define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.7.3' );
@@ -55,6 +56,7 @@ if ( ! function_exists( __NAMESPACE__ . '\\inyfinn_cursor_bridge_mcp_constants' 
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_DIR' ) ) {
 			define( 'INYFINN_CURSOR_BRIDGE_MCP_DIR', plugin_dir_path( __FILE__ ) );
 		}
+		// Legacy constant from 1.0.0, unused by the engine and by CursorBridge; kept for external code that may check it.
 		if ( ! defined( 'WORDPRESS_MCP_ADAPTER_VERSION' ) ) {
 			define( 'WORDPRESS_MCP_ADAPTER_VERSION', '1.5.5' );
 		}
@@ -73,7 +75,11 @@ if ( ! function_exists( __NAMESPACE__ . '\\inyfinn_cursor_bridge_mcp_constants' 
 inyfinn_cursor_bridge_mcp_constants();
 
 try {
-	require_once __DIR__ . '/includes/Autoloader.php';
+	// Engine bootstrap = upstream mcp-adapter.php. A copy loaded first (e.g. network-active official MCP Adapter)
+	// already declared Autoloader: use it instead of a fatal redeclare; Installer deactivates that plugin on activation/repair.
+	if ( ! class_exists( Autoloader::class, false ) ) {
+		require_once __DIR__ . '/includes/Autoloader.php';
+	}
 
 	if ( ! Autoloader::autoload() ) {
 		return;

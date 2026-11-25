@@ -152,7 +152,7 @@ final class Health {
 	 */
 	private static function check_wordpress_version(): array {
 		global $wp_version;
-		$required = '6.8';
+		$required = '6.9';
 		$ok       = version_compare( (string) $wp_version, $required, '>=' );
 
 		return array(
@@ -359,7 +359,7 @@ final class Health {
 			'id'            => 'mcp_adapter',
 			'label'         => 'MCP Adapter (wbudowany)',
 			'status'        => $ok ? 'ok' : 'error',
-			'message'       => $ok ? 'Klasa McpAdapter załadowana' : 'Fork MCP Adapter nie załadowany',
+			'message'       => $ok ? 'Silnik MCP Adapter ' . ( defined( 'WP_MCP_VERSION' ) ? WP_MCP_VERSION : '?' ) . ' załadowany' : 'Silnik MCP Adapter nie załadowany',
 			'repair_action' => $ok ? null : 'full_bootstrap',
 		);
 	}

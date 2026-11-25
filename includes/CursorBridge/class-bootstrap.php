@@ -1,6 +1,6 @@
 <?php
 /**
- * Bootstrap Cursor Bridge abilities inside forked MCP Adapter.
+ * Bootstrap Cursor Bridge abilities on top of the bundled MCP Adapter engine.
  *
  * @package Inyfinn_Cursor_Bridge_MCP
  */
@@ -17,6 +17,8 @@ final class Bootstrap {
 		register_activation_hook( INYFINN_CURSOR_BRIDGE_MCP_FILE, array( __CLASS__, 'on_activate' ) );
 		register_deactivation_hook( INYFINN_CURSOR_BRIDGE_MCP_FILE, array( __CLASS__, 'on_deactivate' ) );
 		add_action( 'plugins_loaded', array( __CLASS__, 'on_plugins_loaded' ), 25 );
+		// Our identity on the engine's default server; engine files stay identical to upstream.
+		add_filter( 'mcp_adapter_default_server_config', array( __CLASS__, 'default_server_config' ) );
 
 		Installer::init();
 		Local_Queue::init();
@@ -24,6 +26,23 @@ final class Bootstrap {
 		Front_Overlays::init();
 		Abilities::register_hooks();
 		GitHub_Updater::init();
+	}
+
+	/**
+	 * @param mixed $config Default server config from DefaultServerFactory::create().
+	 * @return mixed
+	 */
+	public static function default_server_config( $config ) {
+		if ( ! is_array( $config ) ) {
+			return $config;
+		}
+
+		$config['server_name'] = 'Inyfinn Cursor Bridge MCP';
+		// Sent as MCP `instructions` on initialize — every client shows it to its agent on connect.
+		$config['server_description'] = Agent_Playbook::instructions();
+		$config['server_version']     = INYFINN_CURSOR_BRIDGE_MCP_VERSION;
+
+		return $config;
 	}
 
 	public static function on_activate(): void {

@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace WP\MCP\Abilities;
 
 use WP\MCP\Domain\Utils\AbilityArgumentNormalizer;
+use WP\MCP\Domain\Utils\AbilityPermissionChecker;
 use WP_Error;
 
 /**
@@ -20,7 +21,7 @@ use WP_Error;
  *
  * SECURITY CONSIDERATIONS:
  * - This ability has openWorldHint=true, allowing execution of any registered ability
- * - Only abilities with mcp.public=true metadata can be executed via default MCP server.
+ * - Only abilities with effective MCP public exposure can be executed via default MCP server.
  * - Requires proper WordPress capability checks for secure operation
  * - Caller identity verification is enforced through WordPress authentication
  *
@@ -114,12 +115,12 @@ final class ExecuteAbilityAbility {
 			);
 		}
 
-		$ability = wp_get_ability( $ability_name );
+		$ability = wp_has_ability( $ability_name ) ? wp_get_ability( $ability_name ) : null;
 
 		if ( ! $ability ) {
 			return array(
 				'success' => false,
-				'error'   => "Ability '{$ability_name}' not found",
+				'error'   => self::ability_not_found_message( $ability_name ),
 			);
 		}
 
@@ -188,8 +189,7 @@ final class ExecuteAbilityAbility {
 		// Normalize parameters for ability's schema requirements
 		// Empty {} from MCP is treated as null for abilities without input schema
 		$parameters        = $input['parameters'] ?? null;
-		$parameters        = AbilityArgumentNormalizer::normalize( $ability, $parameters );
-		$permission_result = $ability->check_permissions( $parameters );
+		$permission_result = AbilityPermissionChecker::check( $ability, $parameters );
 
 		// Return WP_Error as-is, or convert other values to boolean
 		if ( is_wp_error( $permission_result ) ) {

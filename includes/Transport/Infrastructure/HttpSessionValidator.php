@@ -9,6 +9,8 @@ declare( strict_types=1 );
 
 namespace WP\MCP\Transport\Infrastructure;
 
+use WP\MCP\Infrastructure\ErrorHandling\Contracts\McpErrorHandlerInterface;
+use WP\MCP\Infrastructure\ErrorHandling\ErrorLogMcpErrorHandler;
 use WP\MCP\Infrastructure\ErrorHandling\McpErrorFactory;
 
 /**
@@ -26,25 +28,42 @@ class HttpSessionValidator {
 	 * and session validity in a single method to reduce method call overhead.
 	 *
 	 * @param \WP\MCP\Transport\Infrastructure\HttpRequestContext $context The HTTP request context.
+	 * @param string|int|null $request_id Readable JSON-RPC request ID.
 	 *
 	 * @return array|true Returns true if valid, error array if invalid.
 	 */
-	public static function validate_session( HttpRequestContext $context ) {
+	public static function validate_session( HttpRequestContext $context, $request_id = null ) {
+		return self::validate_session_with_error_handler( $context, null, $request_id );
+	}
+
+	/**
+	 * Validate a session and report storage failures to an error handler.
+	 *
+	 * @since 0.6.0
+	 * @internal
+	 *
+	 * @param \WP\MCP\Transport\Infrastructure\HttpRequestContext                  $context       The HTTP request context.
+	 * @param \WP\MCP\Infrastructure\ErrorHandling\Contracts\McpErrorHandlerInterface|null $error_handler Error handler for reporting storage failures.
+	 * @param string|int|null $request_id Readable JSON-RPC request ID.
+	 *
+	 * @return array|true Returns true if valid, error array if invalid.
+	 */
+	public static function validate_session_with_error_handler( HttpRequestContext $context, ?McpErrorHandlerInterface $error_handler, $request_id = null ) {
 		// Check session header presence
 		$session_id = $context->session_id;
 		if ( ! $session_id ) {
-			return McpErrorFactory::invalid_request( null, 'Missing Mcp-Session-Id header' )->toArray();
+			return McpErrorFactory::invalid_request( $request_id, 'Missing Mcp-Session-Id header' );
 		}
 
 		// Check user authentication
 		$user_id = get_current_user_id();
 		if ( ! $user_id ) {
-			return McpErrorFactory::unauthorized( null, 'User not authenticated' )->toArray();
+			return McpErrorFactory::unauthorized( $request_id, 'User not authenticated' );
 		}
 
 		// Validate session using SessionManager
-		if ( ! SessionManager::validate_session( $user_id, $session_id ) ) {
-			return McpErrorFactory::session_not_found( null, 'Invalid or expired session' )->toArray();
+		if ( ! SessionManager::validate_session( $user_id, $session_id, $error_handler ) ) {
+			return McpErrorFactory::session_not_found( $request_id, 'Invalid or expired session' );
 		}
 
 		return true;
@@ -54,14 +73,15 @@ class HttpSessionValidator {
 	 * Validate session header presence in HTTP request.
 	 *
 	 * @param \WP\MCP\Transport\Infrastructure\HttpRequestContext $context The HTTP request context.
+	 * @param string|int|null $request_id Readable JSON-RPC request ID.
 	 *
 	 * @return string|array Session ID on success, error array on failure.
 	 */
-	public static function validate_session_header( HttpRequestContext $context ) {
+	public static function validate_session_header( HttpRequestContext $context, $request_id = null ) {
 		$session_id = $context->session_id;
 
 		if ( ! $session_id ) {
-			return McpErrorFactory::invalid_request( null, 'Missing Mcp-Session-Id header' )->toArray();
+			return McpErrorFactory::invalid_request( $request_id, 'Missing Mcp-Session-Id header' );
 		}
 
 		return $session_id;
@@ -74,19 +94,55 @@ class HttpSessionValidator {
 	 * context than direct SessionManager calls.
 	 *
 	 * @param array $params The client parameters from initialize request.
+	 * @param string|int|null $request_id Readable JSON-RPC request ID.
 	 *
 	 * @return string|array Session ID on success, error array on failure.
 	 */
-	public static function create_session( array $params = array() ) {
+	public static function create_session( array $params = array(), $request_id = null ) {
+		return self::create_session_with_error_handler( $params, null, $request_id );
+	}
+
+	/**
+	 * Create a session and report storage failures to an error handler.
+	 *
+	 * @since 0.6.0
+	 * @internal
+	 *
+	 * @param array                                                 $params        The client parameters from initialize request.
+	 * @param \WP\MCP\Infrastructure\ErrorHandling\Contracts\McpErrorHandlerInterface|null $error_handler Error handler for reporting storage failures.
+	 * @param string|int|null $request_id Readable JSON-RPC request ID.
+	 *
+	 * @return string|array Session ID on success, error array on failure.
+	 */
+	public static function create_session_with_error_handler( array $params, ?McpErrorHandlerInterface $error_handler, $request_id = null ) {
 		$user_id = get_current_user_id();
 		if ( ! $user_id ) {
-			return McpErrorFactory::unauthorized( null, 'User authentication required for session creation' )->toArray();
+			return McpErrorFactory::unauthorized( $request_id, 'User authentication required for session creation' );
 		}
 
-		$session_id = SessionManager::create_session( $user_id, $params );
+		// Oversized parameters are a client error, not a storage failure.
+		$validation = SessionManager::validate_client_params( $params );
+		if ( is_wp_error( $validation ) ) {
+			$error_handler = $error_handler ?? new ErrorLogMcpErrorHandler();
+			$error_handler->log(
+				'Rejected MCP initialization parameters that exceed the session storage limit.',
+				array_merge(
+					array(
+						'component' => self::class,
+						'method'    => 'create_session_with_error_handler',
+						'user_id'   => $user_id,
+					),
+					(array) $validation->get_error_data()
+				)
+			);
+
+			return McpErrorFactory::invalid_params( $request_id, $validation->get_error_message() );
+		}
+
+		$session_id = SessionManager::create_session( $user_id, $params, $error_handler );
 
 		if ( ! $session_id ) {
-			return McpErrorFactory::internal_error( null, 'Failed to create session' )->toArray();
+			return McpErrorFactory::internal_error( $request_id, 'Failed to create session' );
 		}
 
 		return $session_id;
@@ -103,20 +159,35 @@ class HttpSessionValidator {
 	 * @return array|true Returns true on success, error array on failure.
 	 */
 	public static function terminate_session( HttpRequestContext $context ) {
+		return self::terminate_session_with_error_handler( $context, null );
+	}
+
+	/**
+	 * Terminate a session and report storage failures to an error handler.
+	 *
+	 * @since 0.6.0
+	 * @internal
+	 *
+	 * @param \WP\MCP\Transport\Infrastructure\HttpRequestContext                  $context       The HTTP request context.
+	 * @param \WP\MCP\Infrastructure\ErrorHandling\Contracts\McpErrorHandlerInterface|null $error_handler Error handler for reporting storage failures.
+	 *
+	 * @return array|true Returns true on success, error array on failure.
+	 */
+	public static function terminate_session_with_error_handler( HttpRequestContext $context, ?McpErrorHandlerInterface $error_handler ) {
 		// Validate session header
 		$session_id = $context->session_id;
 		if ( ! $session_id ) {
-			return McpErrorFactory::invalid_request( null, 'Missing Mcp-Session-Id header' )->toArray();
+			return McpErrorFactory::invalid_request( null, 'Missing Mcp-Session-Id header' );
 		}
 
 		// Validate user authentication
 		$user_id = get_current_user_id();
 		if ( ! $user_id ) {
-			return McpErrorFactory::unauthorized( null, 'User not authenticated' )->toArray();
+			return McpErrorFactory::unauthorized( null, 'User not authenticated' );
 		}
 
 		// Terminate the session
-		SessionManager::delete_session( $user_id, $session_id );
+		SessionManager::delete_session( $user_id, $session_id, $error_handler );
 
 		return true;
 	}

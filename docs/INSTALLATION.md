@@ -2,7 +2,7 @@
 
 ## Wymagania wstępne
 
-- WordPress **6.8 lub nowszy**
+- WordPress **6.9 lub nowszy**
 - PHP **7.4+** (zalecane 8.1+)
 - Konto **administratora** WordPress
 - **HTTPS** na domenie (Application Passwords)

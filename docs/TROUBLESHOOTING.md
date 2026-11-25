@@ -13,7 +13,7 @@
 
 | Test | Znaczenie | Naprawa |
 |------|-----------|---------|
-| WordPress 6.8+ | Abilities API | Zaktualizuj WordPress |
+| WordPress 6.9+ | Abilities API | Zaktualizuj WordPress |
 | Wtyczka aktywna | W `active_plugins` | Przycisk Napraw → `activate_plugin` |
 | MU-plugin loader (legacy) | Plik w mu-plugins = błąd | Napraw → **usuwa** loader (1.6.0 ładuje się tylko po Włącz) |
 | Application Passwords | API WP dostępne | Włącz HTTPS; sprawdź filtry `wp_is_application_passwords_available` |
@@ -21,7 +21,7 @@
 | cursor-setup.json | Plik dla Cursora | Napraw → regeneruje |
 | Katalog setup (.htaccess) | Ochrona HTTP | Napraw → tworzy .htaccess |
 | Permalinki | Pretty URLs | Ustawienia → Bezpośrednie odnośniki → zapisz |
-| MCP Adapter | Fork załadowany | Pełny auto-setup |
+| MCP Adapter | Silnik załadowany (wersja w komunikacie) | Pełny auto-setup |
 | Abilities | ≥15 cursor-bridge/* | Pełny auto-setup |
 | Konflikt mcp-adapter | Duplikat wtyczki | Napraw → dezaktywuje |
 | REST route MCP | Trasa REST | Napraw permalinki + auto-setup |
@@ -51,7 +51,7 @@ MCP serwer offline, timeout, 401.
 
 ### Przyczyny
 
-- WordPress < 6.8
+- WordPress < 6.9
 - Wtyczka nieaktywna (tylko mu-loader bez pełnej aktywacji)
 - Błąd PHP przy ładowaniu
 

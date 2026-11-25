@@ -28,9 +28,10 @@ final class Site_Manifest {
 		return array(
 			'plugin'             => 'inyfinn-cursor-bridge-mcp',
 			'plugin_version'     => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : null,
-			'fork_based_on'      => 'wordpress/mcp-adapter 0.5.0',
+			'fork_based_on'      => 'wordpress/mcp-adapter ' . INYFINN_CURSOR_BRIDGE_ENGINE_VERSION,
 			'bridge_version'     => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : INYFINN_CURSOR_BRIDGE_VERSION,
-			'mcp_adapter'        => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : ( defined( 'WORDPRESS_MCP_ADAPTER_VERSION' ) ? WORDPRESS_MCP_ADAPTER_VERSION : null ),
+			// Version of the engine actually loaded (Plugin::constants() sets it from McpAdapter::VERSION).
+			'mcp_adapter'        => defined( 'WP_MCP_VERSION' ) ? WP_MCP_VERSION : INYFINN_CURSOR_BRIDGE_ENGINE_VERSION,
 			'site_url'           => home_url( '/' ),
 			'admin_url'          => admin_url(),
 			'rest_url'           => rest_url(),

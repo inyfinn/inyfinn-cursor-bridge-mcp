@@ -22,7 +22,7 @@ Instrukcja krok po kroku: nowa strona WordPress → pełny dostęp w Cursorze (C
 
 ## 2. Wymagania
 
-- WordPress **6.8+**
+- WordPress **6.9+**
 - PHP **7.4+**
 - HTTPS na domenie
 - Konto admina WordPress

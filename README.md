@@ -4,7 +4,7 @@
 **Wersja:** 1.7.3  
 **Licencja:** GPL-2.0-or-later
 
-Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).
+Oficjalny [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.7.2 (silnik bez zmian, [docs/ENGINE.md](docs/ENGINE.md)) z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).
 
 Łączy WordPress z Cursorem przez MCP — WordPress + **baza (wpdb)** + **pliki** przez jeden serwer MCP.
 
@@ -30,7 +30,7 @@ Fork [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.5.0 z w
 
 | Składnik | Wersja |
 |----------|--------|
-| WordPress | **6.8+** (Abilities API) |
+| WordPress | **6.9+** (Abilities API, wymóg silnika MCP Adapter 0.7) |
 | PHP | 7.4+ |
 | Cursor IDE | z obsługą MCP |
 | Node.js | dla `npx @automattic/mcp-wordpress-remote` |

@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace WP\MCP\Servers;
 
+use WP\MCP\Abilities\McpAbilityExposure;
 use WP\MCP\Core\McpAdapter;
 use WP\MCP\Infrastructure\ErrorHandling\ErrorLogMcpErrorHandler;
 use WP\MCP\Infrastructure\Observability\NullMcpObservabilityHandler;
@@ -17,7 +18,7 @@ use WP\MCP\Transport\HttpTransport;
 /**
  * Factory for creating the default WordPress MCP server.
  *
- * This server automatically discovers and exposes abilities with mcp.public=true metadata:
+ * This server automatically discovers and exposes abilities with effective MCP public exposure:
  * - discover-abilities: Lists all publicly available WordPress abilities
  * - get-ability-info: Gets detailed information about specific abilities
  * - execute-ability: Executes WordPress abilities with provided parameters
@@ -44,12 +45,9 @@ class DefaultServerFactory {
 			'server_id'              => 'mcp-adapter-default-server',
 			'server_route_namespace' => 'mcp',
 			'server_route'           => 'mcp-adapter-default-server',
-			'server_name'            => 'Inyfinn Cursor Bridge MCP',
-			// Sent as MCP `instructions` on initialize — every client shows it to its agent on connect.
-			'server_description'     => class_exists( \Inyfinn_Cursor_Bridge\Agent_Playbook::class )
-				? \Inyfinn_Cursor_Bridge\Agent_Playbook::instructions()
-				: 'Inyfinn fork MCP Adapter — abilities discovery, Cursor bridge tools, WooCommerce',
-			'server_version'         => defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ? INYFINN_CURSOR_BRIDGE_MCP_VERSION : 'v1.0.0',
+			'server_name'            => 'MCP Adapter Default Server',
+			'server_description'     => 'Default MCP server for WordPress abilities discovery and execution',
+			'server_version'         => 'v1.0.0',
 			'mcp_transports'         => array( HttpTransport::class ),
 			'error_handler'          => ErrorLogMcpErrorHandler::class,
 			'observability_handler'  => NullMcpObservabilityHandler::class,
@@ -149,7 +147,7 @@ class DefaultServerFactory {
 			$meta         = $ability->get_meta();
 
 			// Skip if not publicly exposed
-			if ( ! ( $meta['mcp']['public'] ?? false ) ) {
+			if ( ! McpAbilityExposure::is_public( $ability ) ) {
 				continue;
 			}
 

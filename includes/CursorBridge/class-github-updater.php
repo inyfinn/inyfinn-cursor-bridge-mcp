@@ -77,7 +77,7 @@ final class GitHub_Updater {
 			'author'         => '<a href="https://github.com/inyfinn">Inyfinn</a>',
 			'homepage'       => self::HOMEPAGE,
 			'download_link'  => $package ? $package : '',
-			'requires'       => '6.8',
+			'requires'       => '6.9',
 			'requires_php'   => '7.4',
 			'last_updated'   => isset( $release['published_at'] ) ? (string) $release['published_at'] : '',
 			'external'       => true,
@@ -111,7 +111,7 @@ final class GitHub_Updater {
 			'url'          => isset( $release['html_url'] ) ? (string) $release['html_url'] : self::HOMEPAGE,
 			'package'      => $package,
 			'requires_php' => isset( $plugin_data['RequiresPHP'] ) ? (string) $plugin_data['RequiresPHP'] : '7.4',
-			'requires'     => isset( $plugin_data['RequiresWP'] ) ? (string) $plugin_data['RequiresWP'] : '6.8',
+			'requires'     => isset( $plugin_data['RequiresWP'] ) ? (string) $plugin_data['RequiresWP'] : '6.9',
 		);
 	}
 
