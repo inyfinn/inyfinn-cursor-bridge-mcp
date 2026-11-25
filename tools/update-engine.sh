@@ -65,7 +65,8 @@ git ls-files -s -- includes vendor | grep -v 'includes/CursorBridge/' | awk '{pr
 ( cd "$PKG" && git hash-object --no-filters --stdin-paths < "$WORK/new.txt" | paste -d' ' - "$WORK/new.txt" | awk '{print $1"  "$2}' | LC_ALL=C sort -k2 ) > "$WORK/pkg.txt"
 diff -q "$WORK/idx.txt" "$WORK/pkg.txt" >/dev/null || { echo "Staged engine blobs differ from the package" >&2; exit 1; }
 
-sed -i "s/define( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION', '[0-9.]*' )/define( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION', '$VERSION' )/" "$MAIN"
+grep -q "define( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION', '$VERSION' )" "$MAIN" \
+	|| sed -i "s/define( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION', '[0-9.]*' )/define( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION', '$VERSION' )/" "$MAIN"
 grep -q "define( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION', '$VERSION' )" "$MAIN" || { echo "Could not set INYFINN_CURSOR_BRIDGE_ENGINE_VERSION in $MAIN" >&2; exit 1; }
 
 git diff --cached -- includes > "$WORK/engine.diff"
