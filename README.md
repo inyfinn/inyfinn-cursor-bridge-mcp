@@ -1,7 +1,7 @@
 # Inyfinn Cursor Bridge MCP
 
 **Repo:** https://github.com/inyfinn/inyfinn-cursor-bridge-mcp  
-**Wersja:** 1.7.3  
+**Wersja:** 1.7.4  
 **Licencja:** GPL-2.0-or-later
 
 Oficjalny [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) 0.7.2 (silnik bez zmian, [docs/ENGINE.md](docs/ENGINE.md)) z wbudowanym **auto-setupem** i **diagnostyką** dla [Cursor IDE](https://cursor.com).

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased - silnik MCP Adapter 0.7.2
+## 1.7.4 - 2026-11-25 - silnik MCP Adapter 0.7.2
 
 ### Changed - silnik
 - Silnik (`includes/` poza `includes/CursorBridge`, `vendor/`) wymieniony z zamrożonej kopii WordPress/mcp-adapter 0.5.0 na oficjalne 0.7.2 z paczki wordpress.org, bajt w bajt (Jetpack Autoloader 6.0.3, `wordpress/php-mcp-schema` 0.2.0). Pliki silnika nie mają już naszych zmian, następna aktualizacja: `tools/update-engine.sh <wersja>`, opis w `docs/ENGINE.md`.

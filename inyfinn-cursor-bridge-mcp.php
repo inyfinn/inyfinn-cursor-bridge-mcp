@@ -15,7 +15,7 @@
  * Plugin URI:        https://github.com/inyfinn/inyfinn-cursor-bridge-mcp
  * Description:       MCP Adapter + Cursor abilities (SSH/WP-CLI setup guides, site manifest, WooCommerce). Uruchamiane z Cursor IDE przez @automattic/mcp-wordpress-remote.
  * Requires at least: 6.9
- * Version:           1.7.3
+ * Version:           1.7.4
  * Requires PHP:      7.4
  * Author:            Inyfinn
  * Author URI:        https://github.com/inyfinn
@@ -48,7 +48,7 @@ if ( ! function_exists( __NAMESPACE__ . '\\inyfinn_cursor_bridge_mcp_constants' 
 			define( 'INYFINN_CURSOR_BRIDGE_ENGINE_VERSION', '0.7.2' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION' ) ) {
-			define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.7.3' );
+			define( 'INYFINN_CURSOR_BRIDGE_MCP_VERSION', '1.7.4' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_MCP_FILE' ) ) {
 			define( 'INYFINN_CURSOR_BRIDGE_MCP_FILE', __FILE__ );
@@ -61,7 +61,7 @@ if ( ! function_exists( __NAMESPACE__ . '\\inyfinn_cursor_bridge_mcp_constants' 
 			define( 'WORDPRESS_MCP_ADAPTER_VERSION', '1.5.5' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_VERSION' ) ) {
-			define( 'INYFINN_CURSOR_BRIDGE_VERSION', '1.7.3' );
+			define( 'INYFINN_CURSOR_BRIDGE_VERSION', '1.7.4' );
 		}
 		if ( ! defined( 'INYFINN_CURSOR_BRIDGE_DIR' ) ) {
 			define( 'INYFINN_CURSOR_BRIDGE_DIR', plugin_dir_path( __FILE__ ) );
