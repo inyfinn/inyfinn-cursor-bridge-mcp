@@ -9,6 +9,8 @@ namespace Inyfinn_Cursor_Bridge;
 
 defined( 'ABSPATH' ) || exit;
 
+require_once __DIR__ . '/class-audit-log.php';
+
 final class Bootstrap {
 
 	public static function init(): void {
@@ -22,6 +24,7 @@ final class Bootstrap {
 
 		Installer::init();
 		Local_Queue::init();
+		Audit_Log::init();
 		Admin_Page::init();
 		Front_Overlays::init();
 		Abilities::register_hooks();

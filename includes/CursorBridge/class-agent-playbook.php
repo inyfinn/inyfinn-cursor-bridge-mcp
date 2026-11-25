@@ -162,6 +162,7 @@ final class Agent_Playbook {
 				'media-sideload'             => 'Photos from URLs into the media library.',
 				'get-post-meta / set-post-meta' => 'Structured meta (serialized arrays) with backup.',
 				'db-write-probe'             => 'Proof that database writes work.',
+				'audit-list'                 => 'Last bridge calls (who, what, ok, ms, short input) — find a mistake and undo it.',
 				'delete-wp-content-file'     => 'Reversible file removal (bridge trash). After the first connection: repair {action:"remove_setup_file"}.',
 			),
 		);

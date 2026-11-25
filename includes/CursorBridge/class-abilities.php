@@ -120,6 +120,7 @@ final class Abilities {
 		self::register_editing_abilities();
 		self::register_structure_abilities();
 		self::register_discovery_abilities();
+		self::register_audit_list();
 	}
 
 	/**
@@ -163,6 +164,41 @@ final class Abilities {
 						'public_abilities'  => count( $manifest['public_abilities'] ),
 						'timestamp'         => gmdate( 'c' ),
 					);
+				},
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
+				'meta'                => self::mcp_meta(),
+			)
+		);
+	}
+
+	private static function register_audit_list(): void {
+		wp_register_ability(
+			'cursor-bridge/audit-list',
+			array(
+				'label'               => 'Audit Log (last calls)',
+				'description'         => 'Last bridge calls (newest first): time, user, ability, ok, duration, short input summary. Use it to find what changed and undo it.',
+				'category'            => 'cursor-bridge',
+				'input_schema'        => array(
+					'type'       => 'object',
+					'properties' => array(
+						'limit' => array(
+							'type'    => 'integer',
+							'default' => 50,
+							'minimum' => 1,
+							'maximum' => 500,
+						),
+					),
+				),
+				'output_schema'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'entries'   => array( 'type' => 'array' ),
+						'file_size' => array( 'type' => 'integer' ),
+					),
+				),
+				'execute_callback'    => static function ( $input = array() ): array {
+					$input = is_array( $input ) ? $input : array();
+					return Audit_Log::list_entries( (int) ( $input['limit'] ?? 50 ) );
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta(),

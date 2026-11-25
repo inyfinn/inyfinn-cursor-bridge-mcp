@@ -18,6 +18,7 @@ Agent dostaje skrót tej listy automatycznie w polu `instructions` odpowiedzi MC
 | `elementor-list-backups` | `post_id` | 5 ostatnich kopii sprzed zapisów mostu. |
 | `elementor-restore-backup` | `post_id`, `backup_key` | Cofnięcie zapisu (bieżący stan też idzie do kopii). |
 | `purge-caches` | — | Wszystkie warstwy cache strony (bez CDN / hostingu). |
+| `audit-list` | `limit` (1–500, domyślnie 50) | Dziennik wywołań mostu, najnowsze pierwsze: czas, użytkownik, ability, `ok`, czas w ms, skrót wejścia (bez treści plików i `_elementor_data`). Plik: `wp-content/inyfinn-cursor-bridge/audit.log` (rotacja po 1 MB do `audit.log.1`). `manage_options`. |
 
 Przykład — ukrycie sekcji na telefonie zamiast kasowania:
 
@@ -135,7 +136,7 @@ SSH, FTP, workspace. Regeneruje setup file.
 | Ability | Limit |
 |---------|-------|
 | `read-wp-content-file` | 512 KB, bez `..`, **bez cursor-setup.json** |
-| `write-wp-content-file` | bez `..`, **bez nadpisania setup file** |
+| `write-wp-content-file` | bez `..`, **bez nadpisania setup file**; nadpisywany plik trafia najpierw do kosza mostu (`backup` w odpowiedzi), brak kopii = brak zapisu |
 | `list-wp-content-dir` | depth 1–4 |
 
 Ścieżka względem `wp-content`, np. `themes/child/style.css`.
