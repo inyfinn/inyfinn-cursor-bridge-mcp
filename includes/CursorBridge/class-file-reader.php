@@ -256,6 +256,17 @@ final class File_Reader {
 			return new \WP_Error( 'not_writable', 'Directory is not writable.' );
 		}
 
+		// Existing file: copy it to the bridge trash first; no copy, no overwrite.
+		$backup = null;
+		if ( is_file( $absolute ) ) {
+			$backup     = Content_Tools::trash_target( $relative );
+			$backup_abs = WP_CONTENT_DIR . '/' . $backup;
+			Installer::ensure_setup_directory_public(); // trash sits in the protected bridge directory (Deny from all)
+			if ( ! wp_mkdir_p( dirname( $backup_abs ) ) || ! @copy( $absolute, $backup_abs ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				return new \WP_Error( 'backup_failed', 'Could not copy the existing file to the bridge trash, so it was not overwritten.' );
+			}
+		}
+
 		$bytes = file_put_contents( $absolute, $content, LOCK_EX );
 		if ( false === $bytes ) {
 			return new \WP_Error( 'write_error', 'Failed to write file.' );
@@ -266,6 +277,7 @@ final class File_Reader {
 			'size'     => $bytes,
 			'modified' => gmdate( 'c' ),
 			'written'  => true,
+			'backup'   => $backup,
 		);
 	}
 }

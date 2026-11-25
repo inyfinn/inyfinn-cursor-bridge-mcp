@@ -152,6 +152,14 @@ final class Content_Tools {
 	}
 
 	/**
+	 * Bridge-trash path (relative to wp-content) for a wp-content relative path: trash/<Ymd_His>/<path>.
+	 * Used by trash_file() and by File_Reader::write_file() (copy before overwrite).
+	 */
+	public static function trash_target( string $relative ): string {
+		return self::TRASH_DIR . '/' . gmdate( 'Ymd_His' ) . '/' . $relative;
+	}
+
+	/**
 	 * Move a file under wp-content to wp-content/inyfinn-cursor-bridge/trash/<date>/<path>.
 	 * Reversible: restore = move it back (list-wp-content-dir shows the trash).
 	 *
@@ -169,7 +177,7 @@ final class Content_Tools {
 		if ( ! $source || ! is_file( $source ) ) {
 			return array( 'ok' => false, 'error' => 'not_found', 'message' => 'Only single files can be removed (no directories).' );
 		}
-		$target = trailingslashit( WP_CONTENT_DIR ) . self::TRASH_DIR . '/' . gmdate( 'Ymd_His' ) . '/' . $relative;
+		$target = trailingslashit( WP_CONTENT_DIR ) . self::trash_target( $relative );
 		wp_mkdir_p( dirname( $target ) );
 		Installer::ensure_setup_directory_public(); // trash sits in the protected bridge directory (Deny from all)
 		if ( ! @rename( $source, $target ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
