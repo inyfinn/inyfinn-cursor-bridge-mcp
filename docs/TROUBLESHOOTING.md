@@ -135,6 +135,18 @@ wp eval-file wp-content/plugins/inyfinn-cursor-bridge-mcp/tests/smoke-cursor-bri
 
 ---
 
+## Local Queue (SFTP → JSON) jest wyłączona
+
+Od wersji 1.7.4 kolejka plików (`wp-content/inyfinn-cursor-bridge/queue/*.json`) jest domyślnie wyłączona — wcześniej była przetwarzana na każdym żądaniu, także anonimowym. Gdy WAF serwera blokuje HTTP do REST i potrzebujesz tego obejścia, włącz ją w `wp-config.php`:
+
+```php
+define( 'INYFINN_CURSOR_BRIDGE_LOCAL_QUEUE', true );
+```
+
+Po zakończeniu pracy usuń tę linię.
+
+---
+
 ## Kontakt / issue
 
 GitHub Issues: https://github.com/inyfinn/inyfinn-cursor-bridge-mcp/issues

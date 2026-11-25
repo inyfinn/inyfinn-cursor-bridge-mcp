@@ -15,7 +15,10 @@ final class Local_Queue {
 	private const DIR_NAME = 'inyfinn-cursor-bridge';
 
 	public static function init(): void {
-		add_action( 'init', array( __CLASS__, 'process_pending' ), 2 );
+		// Off by default since 1.7.4: the queue ran on every request, including anonymous ones.
+		if ( defined( 'INYFINN_CURSOR_BRIDGE_LOCAL_QUEUE' ) && INYFINN_CURSOR_BRIDGE_LOCAL_QUEUE ) {
+			add_action( 'init', array( __CLASS__, 'process_pending' ), 2 );
+		}
 	}
 
 	public static function base_dir(): string {

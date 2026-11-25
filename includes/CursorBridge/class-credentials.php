@@ -177,11 +177,13 @@ final class Credentials {
 			return true;
 		}
 
-		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === strtolower( (string) $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ) {
+		$trust_proxy = self::request_from_trusted_proxy();
+
+		if ( $trust_proxy && isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === strtolower( (string) $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ) {
 			return true;
 		}
 
-		if ( isset( $_SERVER['HTTP_X_FORWARDED_SSL'] ) && 'on' === strtolower( (string) $_SERVER['HTTP_X_FORWARDED_SSL'] ) ) {
+		if ( $trust_proxy && isset( $_SERVER['HTTP_X_FORWARDED_SSL'] ) && 'on' === strtolower( (string) $_SERVER['HTTP_X_FORWARDED_SSL'] ) ) {
 			return true;
 		}
 
@@ -190,6 +192,19 @@ final class Credentials {
 		}
 
 		return self::wordpress_urls_use_https();
+	}
+
+	/**
+	 * X-Forwarded-* headers count only when the request came from a proxy on loopback/private/reserved
+	 * addresses, or when a filter says so (anyone else can forge them).
+	 */
+	private static function request_from_trusted_proxy(): bool {
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+		if ( false !== filter_var( $ip, FILTER_VALIDATE_IP ) && false === filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+			return true;
+		}
+
+		return (bool) apply_filters( 'inyfinn_cursor_bridge_trust_forwarded_proto', false );
 	}
 
 	public static function wordpress_urls_use_https(): bool {

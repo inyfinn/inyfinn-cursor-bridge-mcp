@@ -178,7 +178,7 @@ final class Rest_Firewall_Diagnostics {
 			'4. Wordfence: Firewall → Whitelisted IP / Learning Mode; logi w wp-content/wflogs/.',
 			'5. Panel hostingu: WAF domeny (SEOHost itd.) — whitelist IP developera.',
 			'6. Po zmianie: restart MCP w Cursorze i ponowny curl.',
-			'7. Workaround bez HTTP: Local Queue (SFTP → wp-content/inyfinn-cursor-bridge/queue/).',
+			'7. Workaround bez HTTP: Local Queue (SFTP → wp-content/inyfinn-cursor-bridge/queue/); od 1.7.4 wyłączona, włącza ją define INYFINN_CURSOR_BRIDGE_LOCAL_QUEUE w wp-config.php.',
 		);
 	}
 }

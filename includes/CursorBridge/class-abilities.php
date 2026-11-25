@@ -33,7 +33,7 @@ final class Abilities {
 			'/ping',
 			array(
 				'methods'             => 'GET',
-				'permission_callback' => static fn() => current_user_can( 'read' ),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'callback'            => static function (): array {
 					return array(
 						'ok'             => true,
@@ -164,7 +164,7 @@ final class Abilities {
 						'timestamp'         => gmdate( 'c' ),
 					);
 				},
-				'permission_callback' => static fn() => current_user_can( 'read' ),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta(),
 			)
 		);
@@ -197,7 +197,7 @@ final class Abilities {
 				'category'            => 'cursor-bridge',
 				'output_schema'       => array( 'type' => 'object' ),
 				'execute_callback'    => static fn() => Site_Manifest::build(),
-				'permission_callback' => static fn() => current_user_can( 'read' ),
+				'permission_callback' => static fn() => current_user_can( 'manage_options' ),
 				'meta'                => self::mcp_meta(),
 			)
 		);
